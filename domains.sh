@@ -10,6 +10,8 @@
 
 set -e
 
+export LC_ALL=en_US.UTF-8
+
 if [[ "$#" -ne 0 ]]; then
 	echo "Usage: $0" >&2
 	exit 1

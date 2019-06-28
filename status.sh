@@ -24,6 +24,8 @@
 
 set -e
 
+export LC_ALL=en_US.UTF-8
+
 if [[ "$#" -ne 0 ]]; then
 	echo "Usage: $0" >&2
 	exit 1
@@ -305,10 +307,10 @@ if [[ -n "$CERT" ]]; then
 	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
 		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
-			echo -e "Warning: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” ")expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+			echo -e "Warning: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
 	else
-		echo "Error: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” ")expired $(date -d "$date")." >&2
+		echo "Error: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired $(date -d "$date")." >&2
 		exit 1
 	fi
 fi
@@ -344,7 +346,7 @@ send() {
 				echo -e "$headers$message" | eval curl -sS "$SMTP" --mail-from "$EMAIL" $(printf -- '--mail-rcpt "%s" ' "${EMAILS[@]}") -T - -u "$USERNAME:$PASSWORD"
 			fi
 		else
-			{ echo -e "$2"; [[ -n "$3" ]] && uuencode "$3" "$3"; } | eval mail $([[ -n "$EMAIL" ]] && echo "-r \"$EMAIL\"") -s "$1" -- "${EMAILS[@]}"
+			{ echo -e "$2"; [[ -n "$3" ]] && uuencode "$3" "$3"; } | eval mail $([[ -n "$EMAIL" ]] && echo "-r \"$EMAIL\"" || echo) -s "$1" -- "${EMAILS[@]}"
 		fi
 	fi
 }
@@ -592,20 +594,20 @@ checkcertificate() {
 		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 			revocation "$1"
-			echo -e "\t\t⚠🔒 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” ")expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
+			echo -e "\t\t⚠🔒 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
 			
-			error ".cert.expires$FILE" "⚠️🔏 Certificate for $SUBJECT expires in < $WARNDAYS days" "The certificate for $MESSAGE $([[ -n "$issuer" ]] && echo "from “$issuer” ")expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+			error ".cert.expires$FILE" "⚠️🔏 Certificate for $SUBJECT expires in < $WARNDAYS days" "The certificate for $MESSAGE $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		else
 			revocation "$1"
-			echo -e "\t\t🔒 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” ")expires in $(getSecondsAsDigitalClock "$sec")."
+			echo -e "\t\t🔒 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in $(getSecondsAsDigitalClock "$sec")."
 			
 			noerror ".cert.expires$FILE"
 			noerror ".cert.expired$FILE"
 		fi
 	else
-		echo -e "\t\t✖️🔓 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” ")expired ${RED}$(date -d "$date")${NC}."
+		echo -e "\t\t✖️🔓 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired ${RED}$(date -d "$date")${NC}."
 		
-		error ".cert.expired$FILE" "❌🔏 Certificate for $SUBJECT expired" "The certificate for $MESSAGE $([[ -n "$issuer" ]] && echo "from “$issuer” ")expired $(date -d "$date").\n"
+		error ".cert.expired$FILE" "❌🔏 Certificate for $SUBJECT expired" "The certificate for $MESSAGE $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired $(date -d "$date").\n"
 	fi
 }
 
@@ -752,19 +754,19 @@ checkdomain() {
 								days=$(( sec / 86400 ))
 								if [[ $days -ge 0 ]]; then
 									if [[ $days -lt $WARNDAYS ]]; then
-										text="\t\t⚠🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” ")expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
+										text="\t\t⚠🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
 										
-										error ".domain.expires.$d" "⚠️🌐 Domain $d expires in < $WARNDAYS days" "The domain $d $([[ -n "$registrar" ]] && echo "from “$registrar” ")expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+										error ".domain.expires.$d" "⚠️🌐 Domain $d expires in < $WARNDAYS days" "The domain $d $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 									else
-										text="\t\t🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” ")expires in $(getSecondsAsDigitalClock "$sec")."
+										text="\t\t🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expires in $(getSecondsAsDigitalClock "$sec")."
 										
 										noerror ".domain.expires.$d"
 										noerror ".domain.expired.$d"
 									fi
 								else
-									text="\t\t✖️🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” ")expired ${RED}$(date -d "$date")${NC}."
+									text="\t\t✖️🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expired ${RED}$(date -d "$date")${NC}."
 									
-									error ".domain.expired.$d" "❌🌐 Domain $d expired" "The domain $d $([[ -n "$registrar" ]] && echo "from “$registrar” ")expired $(date -d "$date").\n"
+									error ".domain.expired.$d" "❌🌐 Domain $d expired" "The domain $d $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expired $(date -d "$date").\n"
 								fi
 							else
 								text="\t\tError: Could not input domain expiration date ($adate)."
@@ -799,9 +801,9 @@ checkblacklist() {
 	# if if [[ -n "$DNS" ]]; then output=$(dig +short a "$1" "@$DNS"); else output=$(dig +short a "$1"); fi && [[ -n "$output" ]]; then
 	if if [[ -n "$DNS" ]]; then output=$(delv +short a "$1" "@$DNS" 2>&1); else output=$(delv +short a "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n "$answers" ]]; then
 		if [[ -n "$DNS" ]]; then output=$(delv +short txt "$1" "@$DNS" 2>&1); else output=$(delv +short txt "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
-		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the \"$2\" blacklist (${answers[*]})$([[ -n "$reasons" ]] && echo ": ${reasons[*]}")."
+		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the \"$2\" blacklist (${answers[*]})$([[ -n "$reasons" ]] && echo ": ${reasons[*]}" || echo)."
 		
-		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the \"$2\" blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the \"$2\" DNS blacklist (${answers[*]})$([[ -n "$reasons" ]] && echo ": ${reasons[*]}").\n"
+		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the \"$2\" blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the \"$2\" DNS blacklist (${answers[*]})$([[ -n "$reasons" ]] && echo ": ${reasons[*]}" || echo).\n"
 	elif output=$(echo "$output" | grep -i '^;; resolution failed') && echo "$output" | grep -iq 'ncache'; then
 		noerror ".blacklist.$2$FILE"
 	else
@@ -1029,10 +1031,10 @@ for i in "${!PORTHOSTNAMES[@]}"; do
 		
 		((++UP))
 	else
-		echo -e "${RED}DOWN${NC}$([[ -n "$reason" ]] && echo " ($reason)")"'!'
+		echo -e "${RED}DOWN${NC}$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'
 		
 		if [[ ! -r "$FILE" ]]; then
-			MESSAGE="$message is currently DOWN$([[ -n "$reason" ]] && echo " ($reason)")"'!'"\n"
+			MESSAGE="$message is currently DOWN$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'"\n"
 			down
 		fi
 		
@@ -1073,10 +1075,10 @@ for i in "${!PINGHOSTNAMES[@]}"; do
 		
 		((++UP))
 	else
-		echo -e "${RED}DOWN${NC}$([[ -n "$reason" ]] && echo " ($reason)")"'!'
+		echo -e "${RED}DOWN${NC}$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'
 		
 		if [[ ! -r "$FILE" ]]; then
-			MESSAGE="$message is currently DOWN$([[ -n "$reason" ]] && echo " ($reason)")"'!'"\n"
+			MESSAGE="$message is currently DOWN$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'"\n"
 			down
 		fi
 		
