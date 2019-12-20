@@ -170,6 +170,7 @@ NC='\e[0m' # No Color
 # COLUMNS=$(tput cols)
 
 NOW=$(date -u)
+SECONDS=0
 
 # Lock directory
 # LOCKDIR="~lock"
@@ -206,7 +207,7 @@ if ! ping6 -q -c 1 google.com > /dev/null 2>&1; then
 fi
 
 if [[ -n "$IPv4" && -n "$IPv6" ]]; then
-	echo -e "\nError: Could not reach google.com, please check your internet connection.\n" >&2
+	echo -e "\nError: Could not reach well known host google.com, please check your internet connection.\n" >&2
 	exit 1
 fi
 
@@ -334,7 +335,7 @@ send() {
 	local headers message
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$EMAIL" && -n "$SMTP" && -n "$USERNAME" && -n "$PASSWORD" ]]; then
-			headers="From: $FROMEMAIL\nTo: ${TOEMAILS[0]}$([[ "${#TOEMAILS[@]}" -gt 1 ]] && printf ', %s' "${TOEMAILS[@]:1}")\nSubject: =?utf-8?B?$(echo "$1" | base64)?=\nDate: $(date -R)\n"
+			headers="From: $FROMEMAIL\nTo: ${TOEMAILS[0]}$([[ "${#TOEMAILS[@]}" -gt 1 ]] && printf ', %s' "${TOEMAILS[@]:1}")\nSubject: =?utf-8?B?$(echo "$1" | base64 -w 0)?=\nDate: $(date -R)\n"
 			if [[ -n "$3" ]]; then
 				message="MIME-Version: 1.0\nContent-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=utf-8\n\n$2\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$3" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename=\"$3\"\n\n$(base64 "$3")\n--MULTIPART-MIXED-BOUNDARY--"
 			else
@@ -1090,7 +1091,7 @@ done
 
 echo -e "${BOLD}Total ${GREEN}█ UP${NC}: $UP\t${BOLD}${RED}█ DOWN${NC}: $DOWN\n"
 
-echo -e "${BOLD}Runtime${NC}: $(timer "$(date -u)")\n"
+echo -e "${BOLD}Runtime${NC}: $(getSecondsAsDigitalClock "$SECONDS")\n"
 
 for d in "${DOMAINS[@]}"; do
 	echo "$NOW" > ".domain.$d"

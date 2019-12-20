@@ -25,7 +25,7 @@ The default Log file is `status.log`.
 
 ### Run the script automatically
 
-This script can also be run automatically from a cron job to regularly monitor one or more remote servers and send notifications when they change state. It can easily be run from a home network on a [Raspberry Pi](https://www.raspberrypi.org/) or it can be run in the cloud in the respective Free tiers for [Amazon Web Services](https://aws.amazon.com/free/), [Google Cloud Platform](https://cloud.google.com/free/) or [Microsoft Azure](https://azure.microsoft.com/en-us/free/). Make sure the computer is running 24/7 and it is on a different network from the servers being monitored.
+This script can also be run automatically from a cron job to regularly monitor one or more remote servers and send notifications when they change state. It can easily be run from a home network on a [Raspberry Pi](https://www.raspberrypi.org/) or it can be run in the cloud in the respective Free tiers for [Amazon Web Services](https://aws.amazon.com/free/), [Google Cloud Platform](https://cloud.google.com/free/), [Microsoft Azure](https://azure.microsoft.com/en-us/free/) or [Oracle Cloud](https://www.oracle.com/cloud/free/). Make sure the computer is running 24/7 and it is on a different network from the servers being monitored.
 
 1. Complete the steps above.
 2. Open the script in an editor again and uncomment the `SEND` variable to enable the sending of notifications (e-mails). If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to set the SMTP server variables in order to send e-mails.
@@ -37,7 +37,7 @@ This script can also be run automatically from a cron job to regularly monitor o
 ### Visual monitoring
 
 Optional visual monitoring requires [Firefox Quantum](https://www.mozilla.org/en-US/firefox/) ([57 or greater](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots)) and ImageMagick.
-I recommended you install [Firefox Quantum: Developer Edition](https://www.mozilla.org/en-US/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively. Note that visual monitoring does not yet work on the Raspberry Pi, since the [Raspbian package manager only provides Firefox ESR 52](https://repology.org/project/firefox/versions).
+I recommended you install [Firefox Quantum: Developer Edition](https://www.mozilla.org/en-US/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively.
 
 1. Complete the steps above.
 2. Make sure Firefox Quantum and ImageMagick are installed. On x86_64 Linux, click these links to download the latest version: [Firefox](https://download.mozilla.org/?product=firefox-latest&lang=en-US&os=linux64), [Firefox Developer Edition](https://download.mozilla.org/?product=firefox-devedition-latest&lang=en-US&os=linux64), [Firefox Beta](https://download.mozilla.org/?product=firefox-beta-latest&lang=en-US&os=linux64), [Firefox Nightly](https://download.mozilla.org/?product=firefox-nightly-latest&lang=en-US&os=linux64) or [Firefox Nightly AddressSanitizer](https://developer.mozilla.org/en-US/docs/Mozilla/Testing/ASan_Nightly_Project#Requirements) build and [follow these instruction](http://mzl.la/1xKrIV5) to install. On the Raspberry Pi, run: `sudo apt-get install firefox-esr imagemagick`.
