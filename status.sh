@@ -38,7 +38,7 @@ fi
 # SEND=1
 
 # To e-mail addresses
-# Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway)
+# Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
 TOEMAILS=(
 
 )
@@ -54,16 +54,29 @@ TOEMAILS=(
 # USERNAME="example"
 # PASSWORD="password"
 
-# Optional S/MIME Certificate to digitally sign the e-mails
+# E-mail Priority
+# Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"
+# Requires SMTP server above
+PRIORITY="1 (Highest)"
+
+# Optional Digitally sign the e-mails with an S/MIME Certificate
 # Requires SMTP server above
 
-# Get a free S/MIME Certificate: https://www.instantssl.com/products/free-secure-email-certificate (Must use the Firefox browser)
-# List of more free S/MIME Certificates: http://kb.mozillazine.org/Getting_an_SMIME_certificate
-# After installing the certificate in Firefox, open the Firefox menu "≡", click on "⚙️ Options" > "🔒 Privacy & Security", under "Security" and "Certificates" click on "View Certificates…", click on the certificate > "Backup…", browse to the location of this script, give it a name and click on "Save". Enter the name for the CERT variable below. Can also import the certificate into a mail client, such as Thunderbird.
+# List of free S/MIME Certificates: http://kb.mozillazine.org/Getting_an_SMIME_certificate
+# Enter the certificate's filename for the CERT variable below.
 
 # CERT="cert.p12"
 
 CLIENTCERT="cert.pem"
+
+# Optional Digitally sign the e-mails with PGP/MIME
+# Requires SMTP server above
+
+# Generate a PGP key pair: gpg --gen-key
+# Use the same e-mail address as used for the FROMEMAIL variable above. Enter the passphrase for the PASSPHRASE variable below.
+# Make sure to send your PGP public key to the recipients before sending them digitally signed e-mails. You can export your PGP public key with: gpg -o key.asc -a --export <e-mail address> and attach key.asc to an e-mail.
+
+# PASSPHRASE="passphrase"
 
 # Website (HTTP(S)) Monitors
 
@@ -227,43 +240,62 @@ IPv6RE='^'"$IPv6"'$'
 URLRE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?(((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}|'"$IPv4"'|'"$IPv6"')(:([[:digit:]]{1,5}))?(.*)?$'
 # for i in "${!BASH_REMATCH[@]}"; do echo -e "$i\t${BASH_REMATCH[$i]}"; done
 
+if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
+	echo -e "Warning:  One or more of the options you set requires that you also set the SMTP server variables. See the script for more information.\n"
+fi
+
 if [[ "${#TOEMAILS[@]}" -eq 0 ]]; then
 	echo "Error: One or more To e-mail addresses are required." >&2
 	exit 1
 fi
 
 # Adapted from: https://github.com/mail-in-a-box/mailinabox/blob/master/setup/network-checks.sh
-if ! [[ -n "$FROMEMAIL" && -n "$SMTP" && -n "$USERNAME" && -n "$PASSWORD" ]] && ! nc -z -w5 aspmx.l.google.com 25; then
+if ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]] && ! nc -z -w5 aspmx.l.google.com 25; then
 	echo -e "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to set the SMTP server variables in order to send e-mails.\n"
 fi
 
-EMAILS=( "${TOEMAILS[@]}" )
-EMAIL=$FROMEMAIL
+# encoded-word <text>
+encoded-word() {
+	# ASCII
+	RE='^[] !"#$%&'\''()*+,./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\^_`abcdefghijklmnopqrstuvwxyz{|}~-]*$' # '^[ -~]*$' # '^[[:ascii:]]*$'
+	if [[ $1 =~ $RE ]]; then
+		echo "$1"
+	else
+		echo "=?utf-8?B?$(echo "$1" | base64 -w 0)?="
+	fi
+}
+
+TOADDRESSES=( "${TOEMAILS[@]}" )
+TONAMES=( "${TOEMAILS[@]}" )
+FROMADDRESS=$FROMEMAIL
+FROMNAME=$FROMEMAIL
 
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 RE='^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
-for i in "${!EMAILS[@]}"; do
-	if [[ ${EMAILS[$i]} =~ $RE ]]; then
-		EMAILS[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+for i in "${!TOADDRESSES[@]}"; do
+	if [[ ${TOADDRESSES[$i]} =~ $RE ]]; then
+		TOADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+		TONAMES[$i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 	fi
 done
 
-if [[ -n "$EMAIL" ]] && [[ $EMAIL =~ $RE ]]; then
-	EMAIL=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+if [[ -n "$FROMADDRESS" ]] && [[ $FROMADDRESS =~ $RE ]]; then
+	FROMADDRESS=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+	FROMNAME=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 fi
 
 RE1='^.{6,254}$'
 RE2='^.{1,64}@'
 RE3='^[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+(\.[[:alnum:]!#\$%&'\''\*\+/=?^_\`{|}~-]+)*@((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}$'
-for email in "${EMAILS[@]}"; do
+for email in "${TOADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
 		echo "Error: \"$email\" is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
-if [[ -n "$EMAIL" ]] && ! [[ $EMAIL =~ $RE1 && $EMAIL =~ $RE2 && $EMAIL =~ $RE3 ]]; then
-	echo "Error: \"$EMAIL\" is not a valid e-mail address." >&2
+if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
+	echo "Error: \"$FROMADDRESS\" is not a valid e-mail address." >&2
 	exit 1
 fi
 
@@ -294,7 +326,7 @@ if [[ -n "$CERT" ]]; then
 		openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes
 	fi
 	
-	# if ! output=$(openssl verify -verify_email "$EMAIL" "$CLIENTCERT" 2>/dev/null); then
+	# if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
 		# echo "Error verifying the S/MIME Certificate: $output" >&2
 		# exit 1
 	# fi
@@ -316,6 +348,32 @@ if [[ -n "$CERT" ]]; then
 	fi
 fi
 
+if [[ -n "$PASSPHRASE" ]]; then
+	if ! echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo); then
+		echo "Error: A PGP key pair does not yet exist for \"$FROMADDRESS\" or the passphrase was incorrect." >&2
+		exit 1
+	fi
+	
+	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F':' '/^pub/ { print $7 }')
+	if [[ -n "$date" ]]; then
+		date=$(echo "$date" | head -n 1)
+		sec=$(( date - $(date -d "$NOW" +%s) ))
+		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)
+		if [[ $sec -gt 0 ]]; then
+			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+				echo -e "Warning: The PGP key pair for \"$FROMADDRESS\" with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
+			fi
+		else
+			echo "Error: The PGP key pair for \"$FROMADDRESS\" with fingerprint $fingerprint expired $(date -d "@$date")." >&2
+			exit 1
+		fi
+	fi
+fi
+
+if [[ -n "$CERT" && -n "$PASSPHRASE" ]]; then
+	echo -e "Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n"
+fi
+
 # Output
 # out <text>
 # out() {
@@ -328,26 +386,32 @@ log() {
 	echo -e -n "[$(date)]  $1" >> "$LOG"
 }
 
-# Send e-mail, with optional message and attachment
+# Send e-mail, with optional message and attachments
 # Supports Unicode characters in subject and message
-# send <subject> [message] [attachment]
+# Source: https://github.com/tdulcet/Send-Msg-CLI
+# send <subject> [message] [attachment(s)]...
 send() {
-	local headers message
+	local headers message amessage
 	if [[ -n "$SEND" ]]; then
-		if [[ -n "$EMAIL" && -n "$SMTP" && -n "$USERNAME" && -n "$PASSWORD" ]]; then
-			headers="From: $FROMEMAIL\nTo: ${TOEMAILS[0]}$([[ "${#TOEMAILS[@]}" -gt 1 ]] && printf ', %s' "${TOEMAILS[@]:1}")\nSubject: =?utf-8?B?$(echo "$1" | base64 -w 0)?=\nDate: $(date -R)\n"
-			if [[ -n "$3" ]]; then
-				message="MIME-Version: 1.0\nContent-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=utf-8\n\n$2\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$3" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename=\"$3\"\n\n$(base64 "$3")\n--MULTIPART-MIXED-BOUNDARY--"
+		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
+			headers="$([[ -n "$PRIORITY" ]] && echo "X-Priority: $PRIORITY\n")From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+			if [[ "$#" -ge 3 ]]; then
+				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
 			else
-				message="Content-Type: text/plain; charset=utf-8\n\n$2"
+				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
 			fi
 			if [[ -n "$CERT" ]]; then
-				echo -e "$headers$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")" | eval curl -sS "$SMTP" --mail-from "$EMAIL" $(printf -- '--mail-rcpt "%s" ' "${EMAILS[@]}") -T - -u "$USERNAME:$PASSWORD"
+				echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
+			elif [[ -n "$PASSPHRASE" ]]; then
+				amessage=$(echo -e "$message")
+				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
+				echo -n "$amessage"
+				echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
 			else
-				echo -e "$headers$message" | eval curl -sS "$SMTP" --mail-from "$EMAIL" $(printf -- '--mail-rcpt "%s" ' "${EMAILS[@]}") -T - -u "$USERNAME:$PASSWORD"
-			fi
+				echo -e "${headers}MIME-Version: 1.0\n$message"
+			fi | eval curl -sS "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
 		else
-			{ echo -e "$2"; [[ -n "$3" ]] && uuencode "$3" "$3"; } | eval mail $([[ -n "$EMAIL" ]] && echo "-r \"$EMAIL\"" || echo) -s "$1" -- "${EMAILS[@]}"
+			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
 		fi
 	fi
 }

@@ -28,7 +28,7 @@ The default Log file is `status.log`.
 This script can also be run automatically from a cron job to regularly monitor one or more remote servers and send notifications when they change state. It can easily be run from a home network on a [Raspberry Pi](https://www.raspberrypi.org/) or it can be run in the cloud in the respective Free tiers for [Amazon Web Services](https://aws.amazon.com/free/), [Google Cloud Platform](https://cloud.google.com/free/), [Microsoft Azure](https://azure.microsoft.com/en-us/free/) or [Oracle Cloud](https://www.oracle.com/cloud/free/). Make sure the computer is running 24/7 and it is on a different network from the servers being monitored.
 
 1. Complete the steps above.
-2. Open the script in an editor again and uncomment the `SEND` variable to enable the sending of notifications (e-mails). If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to set the SMTP server variables in order to send e-mails.
+2. Open the script in an editor again and uncomment the `SEND` variable to enable the sending of notifications (e-mails and text messages). If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to set the SMTP server variables in order to send e-mails.
 3. Set the script to run automatically every minute. Replace "* * * * *" with "*/5 * * * *" to run every 5 minutes.
 	1. Run: `crontab -e`.
 	2. Add this to the bottom of the file (replace "/home/username/status/" with the scripts path): `* * * * * cd /home/username/status/ && ./status.sh > /dev/null`
@@ -388,7 +388,7 @@ By default, the latest screenshot for each website monitor is saved to `screensh
 ^^ Does not work with all mobile providers\
 ^^^ [Available separately](https://hetrixtools.com/pricing/blacklist-monitor/)
 
-This is not a comprehensive list of the Remote Servers Status Script’s functionality.
+This is not a comprehensive list of the Remote Servers Status Script’s functionality. Notifications are sent using the [Send Msg CLI](https://github.com/tdulcet/Send-Msg-CLI).
 
 Source: [Uptime Robot](https://uptimerobot.com/pricing), [StatusCake](https://www.statuscake.com/pricing) and [HetrixTools](https://hetrixtools.com/pricing/uptime-monitor/)
 
