@@ -179,7 +179,7 @@ RED='\e[0;31m'
 YELLOW='\e[0;33m'
 GREEN='\e[0;32m'
 BOLD='\e[1m'
-NC='\e[0m' # No Color
+NC='\e[m' # No Color
 # COLUMNS=$(tput cols)
 
 NOW=$(date -u)
@@ -238,7 +238,7 @@ IPv6RE='^'"$IPv6"'$'
 
 # URL regular expression
 URLRE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?(((xn--)?[[:alnum:]][[:alnum:]\-]{0,61}[[:alnum:]]\.)+(xn--)?[a-zA-Z]{2,63}|'"$IPv4"'|'"$IPv6"')(:([[:digit:]]{1,5}))?(.*)?$'
-# for i in "${!BASH_REMATCH[@]}"; do echo -e "$i\t${BASH_REMATCH[$i]}"; done
+# for i in "${!BASH_REMATCH[@]}"; do echo -e "$i\t${BASH_REMATCH[i]}"; done
 
 if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
 	echo -e "Warning:  One or more of the options you set requires that you also set the SMTP server variables. See the script for more information.\n"
@@ -273,9 +273,9 @@ FROMNAME=$FROMEMAIL
 # Get e-mail address(es): "Example <example@example.com>" -> "example@example.com"
 RE='^([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})|(([[:print:]]*) *<([[:graph:]]{1,64}@[-.[:alnum:]]{4,254})>)$'
 for i in "${!TOADDRESSES[@]}"; do
-	if [[ ${TOADDRESSES[$i]} =~ $RE ]]; then
-		TOADDRESSES[$i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
-		TONAMES[$i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
+	if [[ ${TOADDRESSES[i]} =~ $RE ]]; then
+		TOADDRESSES[i]=${BASH_REMATCH[1]:-${BASH_REMATCH[4]}}
+		TONAMES[i]=${BASH_REMATCH[1]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 	fi
 done
 
@@ -340,10 +340,10 @@ if [[ -n "$CERT" ]]; then
 	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
 		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
-			echo -e "Warning: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+			echo -e "Warning: The S/MIME Certificate ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
 	else
-		echo "Error: The S/MIME Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired $(date -d "$date")." >&2
+		echo "Error: The S/MIME Certificate ${issuer:+from “$issuer” }expired $(date -d "$date")." >&2
 		exit 1
 	fi
 fi
@@ -394,9 +394,9 @@ send() {
 	local headers message amessage
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="$([[ -n "$PRIORITY" ]] && echo "X-Priority: $PRIORITY\n")From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ "${#TONAMES[@]}" -eq 0 && "${#CCNAMES[@]}" -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ "${#TONAMES[@]}" -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ "${#CCNAMES[@]}" -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
 			if [[ "$#" -ge 3 ]]; then
-				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w "%{url_effective}\\n" --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
 			else
 				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
 			fi
@@ -411,7 +411,7 @@ send() {
 				echo -e "${headers}MIME-Version: 1.0\n$message"
 			fi | eval curl -sS "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
 		else
-			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail $([[ -n "$FROMADDRESS" ]] && echo "-r \"$FROMADDRESS\"" || echo) $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
+			{ echo -e "$2"; [[ "$#" -ge 3 ]] && for i in "${@:3}"; do uuencode "$i" "$(basename "$i")"; done; } | eval mail ${FROMADDRESS:+-r "$FROMADDRESS"} $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ "${#TOADDRESSES[@]}" -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
 		fi
 	fi
 }
@@ -470,7 +470,7 @@ down() {
 # error <error file> <subject> <message> [attachment]
 error() {
 	if [[ ! -r "$1" ]]; then
-		touch "$1"
+		>"$1"
 		log "$3"
 		send "$2" "$3" "$4"
 	fi
@@ -659,20 +659,20 @@ checkcertificate() {
 		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 			revocation "$1"
-			echo -e "\t\t⚠🔒 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
+			echo -e "\t\t⚠🔒 Certificate ${issuer:+from “$issuer” }expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
 			
-			error ".cert.expires$FILE" "⚠️🔏 Certificate for $SUBJECT expires in < $WARNDAYS days" "The certificate for $MESSAGE $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+			error ".cert.expires$FILE" "⚠️🔏 Certificate for $SUBJECT expires in < $WARNDAYS days" "The certificate for $MESSAGE ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		else
 			revocation "$1"
-			echo -e "\t\t🔒 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expires in $(getSecondsAsDigitalClock "$sec")."
+			echo -e "\t\t🔒 Certificate ${issuer:+from “$issuer” }expires in $(getSecondsAsDigitalClock "$sec")."
 			
 			noerror ".cert.expires$FILE"
 			noerror ".cert.expired$FILE"
 		fi
 	else
-		echo -e "\t\t✖️🔓 Certificate $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired ${RED}$(date -d "$date")${NC}."
+		echo -e "\t\t✖️🔓 Certificate ${issuer:+from “$issuer” }expired ${RED}$(date -d "$date")${NC}."
 		
-		error ".cert.expired$FILE" "❌🔏 Certificate for $SUBJECT expired" "The certificate for $MESSAGE $([[ -n "$issuer" ]] && echo "from “$issuer” " || echo)expired $(date -d "$date").\n"
+		error ".cert.expired$FILE" "❌🔏 Certificate for $SUBJECT expired" "The certificate for $MESSAGE ${issuer:+from “$issuer” }expired $(date -d "$date").\n"
 	fi
 }
 
@@ -765,7 +765,7 @@ indexof() {
     local -n array=$1
 	local index=-1
 	for i in "${!array[@]}"; do
-        if [[ "${array[$i]}" == "$2" ]]; then
+        if [[ "${array[i]}" == "$2" ]]; then
             index=$i
 			break
         fi
@@ -786,7 +786,7 @@ checkdomain() {
 			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(( ($(date -d "$NOW" +%s) - $(date -d "$(<".domain.$d")" +%s)) / 3600 )) -gt 0 ]]; then
 				index=$(indexof DOMAINS "$d")
 				if [[ $index -ge 0 ]]; then
-					echo -e "${STATUSES[$index]}"
+					echo -e "${STATUSES[index]}"
 				else
 					local text=''
 					# echo "$output" | grep -iq 'no match\|not found\|no data found\|no entries found\|no information\|error\|not satisfy naming rules\|malformed request\|invalid input\|invalid_string\|unassignable\|invalid parameter\|invalid request\|does not exist'
@@ -819,19 +819,19 @@ checkdomain() {
 								days=$(( sec / 86400 ))
 								if [[ $days -ge 0 ]]; then
 									if [[ $days -lt $WARNDAYS ]]; then
-										text="\t\t⚠🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
+										text="\t\t⚠🌐 Domain ($d) ${registrar:+from “$registrar” }expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
 										
-										error ".domain.expires.$d" "⚠️🌐 Domain $d expires in < $WARNDAYS days" "The domain $d $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expires in less than $WARNDAYS days ($(date -d "$date")).\n"
+										error ".domain.expires.$d" "⚠️🌐 Domain $d expires in < $WARNDAYS days" "The domain $d ${registrar:+from “$registrar” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 									else
-										text="\t\t🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expires in $(getSecondsAsDigitalClock "$sec")."
+										text="\t\t🌐 Domain ($d) ${registrar:+from “$registrar” }expires in $(getSecondsAsDigitalClock "$sec")."
 										
 										noerror ".domain.expires.$d"
 										noerror ".domain.expired.$d"
 									fi
 								else
-									text="\t\t✖️🌐 Domain ($d) $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expired ${RED}$(date -d "$date")${NC}."
+									text="\t\t✖️🌐 Domain ($d) ${registrar:+from “$registrar” }expired ${RED}$(date -d "$date")${NC}."
 									
-									error ".domain.expired.$d" "❌🌐 Domain $d expired" "The domain $d $([[ -n "$registrar" ]] && echo "from “$registrar” " || echo)expired $(date -d "$date").\n"
+									error ".domain.expired.$d" "❌🌐 Domain $d expired" "The domain $d ${registrar:+from “$registrar” }expired $(date -d "$date").\n"
 								fi
 							else
 								text="\t\tError: Could not input domain expiration date ($adate)."
@@ -866,13 +866,13 @@ checkblacklist() {
 	# if if [[ -n "$DNS" ]]; then output=$(dig +short a "$1" "@$DNS"); else output=$(dig +short a "$1"); fi && [[ -n "$output" ]]; then
 	if if [[ -n "$DNS" ]]; then output=$(delv +short a "$1" "@$DNS" 2>&1); else output=$(delv +short a "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n "$answers" ]]; then
 		if [[ -n "$DNS" ]]; then output=$(delv +short txt "$1" "@$DNS" 2>&1); else output=$(delv +short txt "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
-		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the \"$2\" blacklist (${answers[*]})$([[ -n "$reasons" ]] && echo ": ${reasons[*]}" || echo)."
+		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the \"$2\" blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
 		
-		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the \"$2\" blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the \"$2\" DNS blacklist (${answers[*]})$([[ -n "$reasons" ]] && echo ": ${reasons[*]}" || echo).\n"
+		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the \"$2\" blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the \"$2\" DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}.\n"
 	elif output=$(echo "$output" | grep -i '^;; resolution failed') && echo "$output" | grep -iq 'ncache'; then
 		noerror ".blacklist.$2$FILE"
 	else
-		echo "Error: Could not check the the $2 blacklist: ${output#*: }"
+		echo "Error: Could not check the $2 blacklist: ${output#*: }"
 	fi
 }
 
@@ -947,7 +947,7 @@ checkvisually() {
 						output=${output#*(}
 						output=${output%)*}
 						output=$(echo "$output" | awk '{ printf "%g", $1 * 100 }')
-						if (( $(awk 'BEGIN{ print "'"$output"'">="'"$PERCENTAGE"'" }') )); then
+						if (( $(echo "$output $PERCENTAGE" | awk '{ print $1>=$2 }') )); then
 							echo -e "\t\t⚠👁 Warning: Visual difference is $output%, which is greater then $PERCENTAGE%."
 							message="The visual difference for $MESSAGE is $output%, which is greater than $PERCENTAGE%.\n"
 							log "$message"
@@ -976,19 +976,21 @@ DOWN=0
 echo -e "${BOLD}Website (HTTP(S)) Monitors${NC}\n"
 
 for i in "${!URLS[@]}"; do
-	FILE=".${URLS[$i]//\//}"
-	SUBJECT=${WEBSITENAMES[$i]}
+	FILE=".${URLS[i]//\//}"
+	SUBJECT=${WEBSITENAMES[i]}
 	# Remove username and password from URL
 	# RE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
-	message="${WEBSITENAMES[$i]}"
-	# [[ "${URLS[$i]}" =~ $RE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[7]}${BASH_REMATCH[9]})"
-	[[ "${URLS[$i]}" =~ $URLRE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[31]}${BASH_REMATCH[33]})"
+	message="${WEBSITENAMES[i]}"
+	# [[ "${URLS[i]}" =~ $RE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[7]}${BASH_REMATCH[9]})"
+	[[ "${URLS[i]}" =~ $URLRE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[31]}${BASH_REMATCH[33]})"
 	
-	echo -e -n "\t${BOLD}${WEBSITENAMES[$i]}${NC} (${URLS[$i]}"
+	echo -e -n "\t${BOLD}${WEBSITENAMES[i]}${NC} (${URLS[i]}"
 	
-	# if check=$(curl -sILw "%{http_code}\\n" "${URLS[$i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
+	# if check=$(curl -sILw '%{http_code}\n' "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
 	# --retry 1 --retry-connrefused
-	if output=$(curl -sSILw "%{url_effective}\\n" "${URLS[$i]}" 2>&1); then
+	if output=$(curl -sSILw '%{url_effective}\n%{time_total}\t%{time_starttransfer}\n' "${URLS[i]}" 2>&1); then
+		times=( $(echo "$output" | tail -n 1) )
+		output=$(echo "$output" | head -n -1)
 		url=$(echo "$output" | tail -n 1)
 		output=$(echo "$output" | head -n -1)
 		# Get HTTP status code and reason phrase
@@ -1004,17 +1006,19 @@ for i in "${!URLS[@]}"; do
 	else
 		aup=''
 		reason=$(echo "$output" | head -n 1 | sed -n 's/^[^:]\+: ([^)]\+) //p')
+		times=( $(echo "$output" | tail -n 1) )
+		url=''
 	fi
 	
-	if [[ -n "$url" && "$url" != "${URLS[$i]}" ]]; then
+	if [[ -n "$url" && "$url" != "${URLS[i]}" ]]; then
 		echo -n " ⇒ $url) is... "
-		# URLS[$i]=$url
+		# URLS[i]=$url
 	else
 		echo -n ") is... "
 	fi
 	
 	if [[ -n "$aup" ]]; then
-		echo -e "${GREEN}UP${NC} (${reason})"'!'
+		echo -e "${GREEN}UP${NC} (${reason})"'!'"  (${times[0]} seconds, TTFB: ${times[1]} seconds)"
 		
 		if [[ -r "$FILE" ]]; then
 			MESSAGE="$message is UP (${reason})"'!'"\n"
@@ -1023,7 +1027,7 @@ for i in "${!URLS[@]}"; do
 		
 		# Get protocol, hostname and port from URL
 		# RE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
-		if [[ "${URLS[$i]}" =~ $URLRE ]]; then
+		if [[ "${URLS[i]}" =~ $URLRE ]]; then
 			protocol=${BASH_REMATCH[2]}
 			host=${BASH_REMATCH[6]}
 			# Convert hostname to Internationalizing Domain Names in Applications (IDNA) encoding
@@ -1040,11 +1044,11 @@ for i in "${!URLS[@]}"; do
 		fi
 		
 		# checkvisually "$url"
-		checkvisually "${URLS[$i]}"
+		checkvisually "${URLS[i]}"
 		
 		((++UP))
 	else
-		echo -e "${RED}DOWN${NC} (${reason})"'!'
+		echo -e "${RED}DOWN${NC} (${reason})"'!'"  (${times[0]} seconds)"
 		
 		if [[ ! -r "$FILE" ]]; then
 			MESSAGE="$message is currently DOWN (${reason})"'!'"\n"
@@ -1059,29 +1063,31 @@ done
 
 # echo -e "${BOLD}Keyword Website (HTTP(S)) Monitors${NC}\n"
 
-# output=$(curl -sSILw "%{url_effective}\\n" "${URLS[$i]}" 2>&1)
+# output=$(curl -sSILw '%{url_effective}\n' "${URLS[i]}" 2>&1)
 # There is no way with cURL to get the HTTP Headers and Body in separate variables and to have cURL follow redirects without using a temp file or two cURL commands
 # I chose to use two commands for performance and to reduce disk ware with SSDs
-# output=$(curl -sSL "${URLS[$i]}" 2>&1)
+# output=$(curl -sSL "${URLS[i]}" 2>&1)
 
 echo -e "${BOLD}Port Monitors${NC}\n"
 
 for i in "${!PORTHOSTNAMES[@]}"; do
-	FILE=".${PORTHOSTNAMES[$i]}${PORTS[$i]}"
-	SUBJECT=${PORTNAMES[$i]}
-	message="${PORTNAMES[$i]} (${PORTHOSTNAMES[$i]}:${PORTS[$i]}$([[ -n "${PROTOCOLS[$i]}" ]] && echo " and Protocol: ${PROTOCOLS[$i]^^}" || echo))"
+	FILE=".${PORTHOSTNAMES[i]}${PORTS[i]}"
+	SUBJECT=${PORTNAMES[i]}
+	message="${PORTNAMES[i]} (${PORTHOSTNAMES[i]}:${PORTS[i]}${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}})"
 	
-	echo -e -n "\t${BOLD}${PORTNAMES[$i]}${NC} (${PORTHOSTNAMES[$i]}:${PORTS[$i]}$([[ -n "${PROTOCOLS[$i]}" ]] && echo " and Protocol: ${PROTOCOLS[$i]^^}" || echo)) is... "
+	echo -e -n "\t${BOLD}${PORTNAMES[i]}${NC} (${PORTHOSTNAMES[i]}:${PORTS[i]}${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}}) is... "
 	
-	if output=$(nc -z "${PORTHOSTNAMES[$i]}" "${PORTS[$i]}" 2>&1); then
+	if output=$(TIMEFORMAT='%R'; { time nc -z "${PORTHOSTNAMES[i]}" "${PORTS[i]}"; } 2>&1); then
 		aup=1
 	else
 		aup=''
 		reason=$(echo "$output" | sed -n 's/^.\+: //p')
 	fi
 	
+	time=$(echo "$output" | tail -n 1)
+	
 	if [[ -n "$aup" ]]; then
-		echo -e "${GREEN}UP${NC}"'!'
+		echo -e "${GREEN}UP${NC}"'!'"  ($time seconds)"
 		
 		if [[ -r "$FILE" ]]; then
 			MESSAGE="$message is UP"'!'"\n"
@@ -1089,17 +1095,17 @@ for i in "${!PORTHOSTNAMES[@]}"; do
 		fi
 		
 		MESSAGE="$message"
-		dnssec "${PORTHOSTNAMES[$i]}"
-		certificate "${PORTHOSTNAMES[$i]}" "${PORTS[$i]}" "${PROTOCOLS[$i]}"
-		checkdomain "${PORTHOSTNAMES[$i]}"
-		checkblacklists "${PORTHOSTNAMES[$i]}"
+		dnssec "${PORTHOSTNAMES[i]}"
+		certificate "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PROTOCOLS[i]}"
+		checkdomain "${PORTHOSTNAMES[i]}"
+		checkblacklists "${PORTHOSTNAMES[i]}"
 		
 		((++UP))
 	else
-		echo -e "${RED}DOWN${NC}$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'
+		echo -e "${RED}DOWN${NC}${reason:+ ($reason)}"'!'"  ($time seconds)"
 		
 		if [[ ! -r "$FILE" ]]; then
-			MESSAGE="$message is currently DOWN$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'"\n"
+			MESSAGE="$message is currently DOWN${reason:+ ($reason)}"'!'"\n"
 			down
 		fi
 		
@@ -1112,21 +1118,24 @@ done
 echo -e "${BOLD}Ping Monitors${NC}\n"
 
 for i in "${!PINGHOSTNAMES[@]}"; do
-	FILE=".${PINGHOSTNAMES[$i]}"
-	SUBJECT=${PORTNAMES[$i]}
-	message="${PINGNAMES[$i]} (${PINGHOSTNAMES[$i]})"
+	FILE=".${PINGHOSTNAMES[i]}"
+	SUBJECT=${PORTNAMES[i]}
+	message="${PINGNAMES[i]} (${PINGHOSTNAMES[i]})"
 	
-	echo -e -n "\t${BOLD}${PINGNAMES[$i]}${NC} (${PINGHOSTNAMES[$i]}) is... "
+	echo -e -n "\t${BOLD}${PINGNAMES[i]}${NC} (${PINGHOSTNAMES[i]}) is... "
 	
-	if output=$(ping -q -c 1 "${PINGHOSTNAMES[$i]}" 2>&1); then
+	if output=$(TIMEFORMAT='%R'; { time ping -q -c 1 "${PINGHOSTNAMES[i]}"; } 2>&1); then
 		aup=1
 	else
 		aup=''
 		reason=$(echo "$output" | sed -n 's/^.\+: //p')
 	fi
 	
+	time=$(echo "$output" | tail -n 1)
+	rtt=$(echo "$output" | awk -F'/' '/^rtt / {print $5}')
+	
 	if [[ -n "$aup" ]]; then
-		echo -e "${GREEN}UP${NC}"'!'
+		echo -e "${GREEN}UP${NC}"'!'"  ($time seconds, RTT: $rtt milliseconds)"
 		
 		if [[ -r "$FILE" ]]; then
 			MESSAGE="$message is UP"'!'"\n"
@@ -1134,16 +1143,16 @@ for i in "${!PINGHOSTNAMES[@]}"; do
 		fi
 		
 		MESSAGE="$message"
-		dnssec "${PINGHOSTNAMES[$i]}"
-		checkdomain "${PINGHOSTNAMES[$i]}"
-		checkblacklists "${PINGHOSTNAMES[$i]}"
+		dnssec "${PINGHOSTNAMES[i]}"
+		checkdomain "${PINGHOSTNAMES[i]}"
+		checkblacklists "${PINGHOSTNAMES[i]}"
 		
 		((++UP))
 	else
-		echo -e "${RED}DOWN${NC}$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'
+		echo -e "${RED}DOWN${NC}${reason:+ ($reason)}"'!'"  ($time seconds${rtt:+, RTT: $rtt milliseconds})"
 		
 		if [[ ! -r "$FILE" ]]; then
-			MESSAGE="$message is currently DOWN$([[ -n "$reason" ]] && echo " ($reason)" || echo)"'!'"\n"
+			MESSAGE="$message is currently DOWN${reason:+ ($reason)}"'!'"\n"
 			down
 		fi
 		

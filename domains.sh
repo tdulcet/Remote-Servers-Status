@@ -24,14 +24,14 @@ example.net
 example.org
 example.edu
 )
-[[ -r "domain-list.txt" ]] && DOMAINS+=( $(<"domain-list.txt" sort -u) )
+[[ -r "domain-list.txt" ]] && DOMAINS+=( $(sort -u "domain-list.txt") )
 WARNDAYS=30
 
 RED='\e[0;31m'
 YELLOW='\e[0;33m'
 GREEN='\e[0;32m'
 BOLD='\e[1m'
-NC='\e[0m' # No Color
+NC='\e[m' # No Color
 NOW=$(date -u)
 
 printf "\n${BOLD}%-35s %-61s %-36s %-5s${NC}\n" "Domain" "Registrar" "Expiration Date (current time zone)" "Days Left"
