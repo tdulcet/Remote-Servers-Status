@@ -19,7 +19,7 @@ Requires the curl, netcat, ping, dig, delv, whois and openssl commands, which ar
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
 3. Download the script ([status.sh](status.sh)). Run: `wget https://raw.github.com/tdulcet/Remote-Servers-Status/master/status.sh`.
 4. Open the script in an editor and set the variables at the top. At a minimum, you need to provide one To e-mail address and one Website, Port or Ping monitor.
-5. Execute the script once to make sure there are no errors. Run: `./status.sh`.
+5. Execute the script once to make sure there are no errors. Run: `chmod u+x status.sh` and `./status.sh`.
 
 The default Log file is `status.log`.
 
@@ -36,11 +36,11 @@ This script can also be run automatically from a cron job to regularly monitor o
 
 ### Visual monitoring
 
-Optional visual monitoring requires [Firefox Quantum](https://www.mozilla.org/en-US/firefox/) ([57 or greater](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots)) and ImageMagick.
-I recommended you install [Firefox Quantum: Developer Edition](https://www.mozilla.org/en-US/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively.
+Optional visual monitoring requires [Firefox](https://www.mozilla.org/en-US/firefox/) ([57 or greater](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots)) and ImageMagick.
+I recommended you install [Firefox: Developer Edition](https://www.mozilla.org/en-US/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively.
 
 1. Complete the steps above.
-2. Make sure Firefox Quantum and ImageMagick are installed. On x86_64 Linux, click these links to download the latest version: [Firefox](https://download.mozilla.org/?product=firefox-latest&lang=en-US&os=linux64), [Firefox Developer Edition](https://download.mozilla.org/?product=firefox-devedition-latest&lang=en-US&os=linux64), [Firefox Beta](https://download.mozilla.org/?product=firefox-beta-latest&lang=en-US&os=linux64), [Firefox Nightly](https://download.mozilla.org/?product=firefox-nightly-latest&lang=en-US&os=linux64) or [Firefox Nightly AddressSanitizer](https://developer.mozilla.org/en-US/docs/Mozilla/Testing/ASan_Nightly_Project#Requirements) build and [follow these instruction](http://mzl.la/1xKrIV5) to install. On the Raspberry Pi, run: `sudo apt-get install firefox-esr imagemagick`.
+2. Make sure Firefox and ImageMagick are installed. On x86_64 Linux, click these links to download the latest version: [Firefox](https://download.mozilla.org/?product=firefox-latest&lang=en-US&os=linux64), [Firefox Developer Edition](https://download.mozilla.org/?product=firefox-devedition-latest&lang=en-US&os=linux64), [Firefox Beta](https://download.mozilla.org/?product=firefox-beta-latest&lang=en-US&os=linux64), [Firefox Nightly](https://download.mozilla.org/?product=firefox-nightly-latest&lang=en-US&os=linux64) or [Firefox Nightly AddressSanitizer](https://firefox-source-docs.mozilla.org/tools/sanitizer/asan_nightly.html#requirements) build and [follow these instruction](http://mzl.la/1xKrIV5) to install. On the Raspberry Pi, run: `sudo apt-get install firefox-esr imagemagick`.
 3. Open the script in an editor and uncomment the `PERCENTAGE` variable to enable visual monitoring.
 
 By default, the latest screenshot for each website monitor is saved to `screenshot.<URL without backslashes>.png`. For example, if the monitor's URL were https://example.com/, the file would be `screenshot.https:example.com.png`.
@@ -429,6 +429,7 @@ Pull requests welcome! Ideas for contributions:
 	* Add push notification support
 * Support associating the e-mail address with specific monitors
 * Support sending more than one expiry reminder notification
+* Support setting a timeout value
 * Improve the performance
 * Support checking the monitors in parallel
 * Add keyword and change monitor types
@@ -437,4 +438,4 @@ Pull requests welcome! Ideas for contributions:
 * Support [Internationalized domain names](https://en.wikipedia.org/wiki/Internationalized_domain_name) (IDNs) and [International email](https://en.wikipedia.org/wiki/International_email) addresses
 	* Currently they are only supported in Internationalizing Domain Names in Applications (IDNA) encoding.
 * Support domain monitoring with the [Registration Data Access Protocol](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol) (RDAP)
-* Support checking for the [HTTP Strict Transport Security](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) (HSTS) header and the [MTA Strict Transport Security](https://tools.ietf.org/html/rfc8461) (MTA-STS) file
+* Support checking for the [HTTP Strict Transport Security](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) (HSTS) header and the [MTA Strict Transport Security](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP_MTA_Strict_Transport_Security) (MTA-STS) file

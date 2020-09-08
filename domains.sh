@@ -12,7 +12,7 @@ set -e
 
 export LC_ALL=en_US.UTF-8
 
-if [[ "$#" -ne 0 ]]; then
+if [[ $# -ne 0 ]]; then
 	echo "Usage: $0" >&2
 	exit 1
 fi
@@ -59,7 +59,7 @@ for d in "${DOMAINS[@]}"; do
 			registrar="Unknown" # registrar="Error: Could not get domain registrar."
 		fi
 		
-		if adate=$(echo "$output" | grep -i 'expiration\|expires\|expiry\|renewal\|expire\|paid-till\|valid until\|exp date\|vencimiento'); then
+		if adate=$(echo "$output" | grep -i 'expiration\|expires\|expiry\|renewal\|expire\|paid-till\|valid until\|exp date\|validity\|vencimiento'); then
 			adate=$(echo "$adate" | head -n 1 | sed -n 's/^[^]:]\+[]:][.[:blank:]]*//p')
 			adate=${adate%.}
 			if date=$(date -u -d "$adate" 2>&1) || date=$(date -u -d "${adate//./-}" 2>&1) || date=$(date -u -d "${adate//.//}" 2>&1) || date=$(date -u -d "$(echo "${adate//./-}" | awk -F'[/-]' '{for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-")}')" 2>&1); then
@@ -75,19 +75,19 @@ for d in "${DOMAINS[@]}"; do
 	else
 		registrar="Error querying whois server: $output"
 	fi
-	printf "%-35s %-61s " "$d" "$registrar"
+	printf '%-35s %-61s ' "$d" "$registrar"
 	if [[ -n $days ]]; then
 		if [[ $days -ge 0 ]]; then
 			if [[ $days -lt $WARNDAYS ]]; then
-				printf "${YELLOW}%-36s %-5s${NC}\n" "$date" "$days"
+				printf "${YELLOW}%-36s %'-5d${NC}\n" "$date" "$days"
 			else
-				printf "${GREEN}%-36s %-5s${NC}\n" "$date" "$days"
+				printf "${GREEN}%-36s %'-5d${NC}\n" "$date" "$days"
 			fi
 		else
-			printf "${RED}%-36s %-5s${NC}\n" "$date" "$days"
+			printf "${RED}%-36s %'-5d${NC}\n" "$date" "$days"
 		fi
 	else
-		printf "%-36s\n" "$date"
+		printf '%-36s\n' "$date"
 	fi
 	sleep 2
 done
