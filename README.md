@@ -5,7 +5,7 @@ Copyright © 2019 Teal Dulcet
 
 [Monitors](https://en.wikipedia.org/wiki/Website_monitoring) the status of one or more remote servers and send notifications when status changes state. Supports Uptime, SSL/TLS Certificate, Domain, [DNS Security Extensions](https://en.wikipedia.org/wiki/Domain_Name_System_Security_Extensions) (DNSSEC),  [DNS-based Authentication of Named Entities](https://en.wikipedia.org/wiki/DNS-based_Authentication_of_Named_Entities) (DANE) TLSA, [Blacklist](https://en.wikipedia.org/wiki/DNSBL) and Visual monitoring for Website (HTTP(S)), Port (POP3, IMAP, SMTP, FTP, SSH/SFTP, etc.) and [Ping](https://en.wikipedia.org/wiki/Ping_(networking_utility)) monitor types. Uses Unicode [symbols](https://en.wikipedia.org/wiki/Miscellaneous_Symbols) and [Emojis](https://unicode.org/emoji/charts/full-emoji-list.html) and [terminal colors and formatting](https://misc.flogisoft.com/bash/tip_colors_and_formatting) to output the results to the console.
 
-Please visit [tealdulcet.com](https://www.tealdulcet.com/) to support this script and my other software development.
+❤️ Please visit [tealdulcet.com](https://www.tealdulcet.com/) to support this script and my other software development.
 
 ![](images/screenshot.png)
 

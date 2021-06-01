@@ -34,7 +34,7 @@ BOLD='\e[1m'
 NC='\e[m' # No Color
 NOW=$(date -u)
 
-printf "\n${BOLD}%-35s %-61s %-36s %-5s${NC}\n" "Domain" "Registrar" "Expiration Date (current time zone)" "Days Left"
+printf "\n${BOLD}%-35s %-61s %-36s %-9s %s${NC}\n" 'Domain' 'Registrar' 'Expiration Date (current time zone)' 'Days Left' 'DNSSEC'
 for d in "${DOMAINS[@]}"; do
 	registrar=''
 	date=''
@@ -46,7 +46,7 @@ for d in "${DOMAINS[@]}"; do
 		fi
 	fi
 	if { output=$(whois "$d" 2>&1) && [[ -n "$output" ]]; } || { [[ -n "$server" ]] && output=$(whois -h "$server" "$d" 2>&1) && [[ -n "$output" ]]; }; then
-		if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|\[registrant\]\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:'); then
+		if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:\|current registar:\|authorized agency'); then
 			aregistrar=$(echo "$aregistrar" | head -n 2)
 			registrar=$(echo "$aregistrar" | sed -n '/^.\+[]:][.[:blank:]]*/ {$!N; s/^[^]:]\+[]:][.[:space:]]*//p}' | head -n 1)
 		elif aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar'); then
@@ -72,23 +72,31 @@ for d in "${DOMAINS[@]}"; do
 		else
 			date="Unknown" # date="Error: Could not get domain expiration date."
 		fi
+		
+		if adnssec=$(echo "$output" | grep -i -A 1 'dnssec'); then
+			adnssec=$(echo "$adnssec" | head -n 2)
+			dnssec=$(echo "$adnssec" | sed -n '/^.\+:[[:blank:]]*/ {$!N; s/^[^:]\+:[[:space:]]*//p}' | head -n 1)
+		else
+			dnssec=''
+		fi
 	else
 		registrar="Error querying whois server: $output"
 	fi
-	printf '%-35s %-61s ' "$d" "$registrar"
+	printf '\e]8;;http://%s\e\\%s\e]8;;\e\\%*s %-61s ' "$d" "$d" $(( -35 + ${#d} )) '' "$registrar"
 	if [[ -n $days ]]; then
 		if [[ $days -ge 0 ]]; then
 			if [[ $days -lt $WARNDAYS ]]; then
-				printf "${YELLOW}%-36s %'-5d${NC}\n" "$date" "$days"
+				printf "${YELLOW}%-36s %'-9d${NC}" "$date" "$days"
 			else
-				printf "${GREEN}%-36s %'-5d${NC}\n" "$date" "$days"
+				printf "${GREEN}%-36s %'-9d${NC}" "$date" "$days"
 			fi
 		else
-			printf "${RED}%-36s %'-5d${NC}\n" "$date" "$days"
+			printf "${RED}%-36s %'-9d${NC}" "$date" "$days"
 		fi
 	else
-		printf '%-36s\n' "$date"
+		printf '%-36s %-9s' "$date"
 	fi
+	printf ' %s\n' "$dnssec"
 	sleep 2
 done
 echo

@@ -229,16 +229,16 @@ echo -e "done\n"
 
 # IPv4 address regular expression
 # RE='^2([0-4][0-9]|5[0-5])|1?[0-9][0-9]{1,2}(\.(2([0-4][0-9]|5[0-5])|1?[0-9]{1,2})){3}$'
-IPv4='((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])'
+IPv4='((25[0-5]|(2[0-4]|[01]?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|[01]?[0-9])?[0-9])'
 IPv4RE='^'"$IPv4"'$'
 
 # IPv6 address regular expression
 # RE='^[[:xdigit:]]{1,4}(:[[:xdigit:]]{1,4}){7}$'
-IPv6='(([[:xdigit:]]{1,4}:){7}[[:xdigit:]]{1,4}|([[:xdigit:]]{1,4}:){1,7}:|([[:xdigit:]]{1,4}:){1,6}:[[:xdigit:]]{1,4}|([[:xdigit:]]{1,4}:){1,5}(:[[:xdigit:]]{1,4}){1,2}|([[:xdigit:]]{1,4}:){1,4}(:[[:xdigit:]]{1,4}){1,3}|([[:xdigit:]]{1,4}:){1,3}(:[[:xdigit:]]{1,4}){1,4}|([[:xdigit:]]{1,4}:){1,2}(:[[:xdigit:]]{1,4}){1,5}|[[:xdigit:]]{1,4}:((:[[:xdigit:]]{1,4}){1,6})|:((:[[:xdigit:]]{1,4}){1,7}|:))'
+IPv6='(([[:xdigit:]]{1,4}:){7}[[:xdigit:]]{1,4}|:((:[[:xdigit:]]{1,4}){1,7}|:)|[[:xdigit:]]{1,4}:((:[[:xdigit:]]{1,4}){1,6})|([[:xdigit:]]{1,4}:){1,2}(:[[:xdigit:]]{1,4}){1,5}|([[:xdigit:]]{1,4}:){1,3}(:[[:xdigit:]]{1,4}){1,4}|([[:xdigit:]]{1,4}:){1,4}(:[[:xdigit:]]{1,4}){1,3}|([[:xdigit:]]{1,4}:){1,5}(:[[:xdigit:]]{1,4}){1,2}|([[:xdigit:]]{1,4}:){1,6}:[[:xdigit:]]{1,4}|([[:xdigit:]]{1,4}:){1,7}:)'
 IPv6RE='^'"$IPv6"'$'
 
 # URL regular expression
-URLRE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?(((xn--)?[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?\.)+(xn--)?[[:alpha:]]{2,63}|'"$IPv4"'|'"$IPv6"')(:([[:digit:]]{1,5}))?(.*)?$'
+URLRE='^((https?:)//)?(([^: [:cntrl:]]{1,128})(:[^@ [:cntrl:]]{1,256})?@)?(\['"$IPv6"'\]|'"$IPv4"'|([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63}))(:([[:digit:]]{1,5}))?((/[^/?# [:cntrl:]]*)*)(\?[^# [:cntrl:]]*)?(#[^# [:cntrl:]]*)?$'
 # for i in "${!BASH_REMATCH[@]}"; do echo -e "$i\t${BASH_REMATCH[i]}"; done
 
 if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
@@ -262,7 +262,7 @@ encoded-word() {
 	if [[ $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo "$1" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo -e "$1" | base64 -w 0)?="
 	fi
 }
 
@@ -285,10 +285,11 @@ if [[ -n "$FROMADDRESS" ]] && [[ $FROMADDRESS =~ $RE ]]; then
 	FROMNAME=${BASH_REMATCH[2]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 fi
 
+# E-mail address regular expressions
 RE1='^.{6,254}$'
 RE2='^.{1,64}@'
-# RE3='^[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+(\.[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+)*@((xn--)?[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?\.)+(xn--)?[[:alpha:]]{2,63}$'
-RE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@((xn--)?[[:alnum:]]([[:alnum:]-]{0,61}[[:alnum:]])?\.)+(xn--)?[[:alpha:]]{2,63}$'
+# RE3='^[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+(\.[[:alnum:]!#$%&'\''*+/=?^_`{|}~-]+)*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
+RE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
 for email in "${TOADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
 		echo "Error: \"$email\" is not a valid e-mail address." >&2
@@ -403,7 +404,8 @@ send() {
 				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
 			fi
 			if [[ -n "$CERT" ]]; then
-				echo -e "${headers}$(echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT")"
+				echo -e -n "${headers}"
+				echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT"
 			elif [[ -n "$PASSPHRASE" ]]; then
 				amessage=$(echo -e "$message")
 				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
@@ -794,7 +796,7 @@ checkdomain() {
 					if output=$(whois "$d" 2>&1) && [[ -n "$output" ]]; then
 						# Get Sponsoring Registrar
 						# The rest of the TLDs, .uk and .co.uk are on two lines
-						if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|\[registrant\]\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:'); then
+						if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:\|current registar:\|authorized agency'); then
 							aregistrar=$(echo "$aregistrar" | head -n 2)
 							registrar=$(echo "$aregistrar" | sed -n '/^.\+[]:][.[:blank:]]*/ {$!N; s/^[^]:]\+[]:][.[:space:]]*//p}' | head -n 1)
 						# .it, on two lines
@@ -980,12 +982,14 @@ for i in "${!URLS[@]}"; do
 	FILE=".${URLS[i]//\//}"
 	SUBJECT=${WEBSITENAMES[i]}
 	# Remove username and password from URL
-	# RE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
+	# RE='^((https?:)//)?(([^:]{1,128})(:[^@]{1,256})?@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
 	message="${WEBSITENAMES[i]}"
 	# [[ ${URLS[i]} =~ $RE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[7]}${BASH_REMATCH[9]})"
-	[[ ${URLS[i]} =~ $URLRE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[32]}${BASH_REMATCH[34]})"
+	[[ ${URLS[i]} =~ $URLRE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[31]}${BASH_REMATCH[33]}${BASH_REMATCH[35]}${BASH_REMATCH[36]})"
 	
-	printf "\t${BOLD}%s${NC} (%s" "${WEBSITENAMES[i]}" "${URLS[i]}"
+	printf "\t${BOLD}"
+	printf '\e]8;;%s\e\\%s\e]8;;\e\\' "${URLS[i]}" "${WEBSITENAMES[i]}"
+	printf "${NC} (%s" "${URLS[i]}"
 	
 	# if check=$(curl -sILw '%{http_code}\n' "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
 	# --retry 1 --retry-connrefused
@@ -1027,17 +1031,17 @@ for i in "${!URLS[@]}"; do
 		fi
 		
 		# Get protocol, hostname and port from URL
-		# RE='^((https?:)//)?(([^:]{1,128}):([^@]{1,256})@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
+		# RE='^((https?:)//)?(([^:]{1,128})(:[^@]{1,256})?@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
 		if [[ ${URLS[i]} =~ $URLRE ]]; then
 			protocol=${BASH_REMATCH[2]}
 			host=${BASH_REMATCH[6]}
 			# Convert hostname to Internationalizing Domain Names in Applications (IDNA) encoding
-			# host=$(python -c 'import sys; print unicode(sys.argv[1], "utf8").encode("idna")' "$host")
+			# host=$(python3 -c 'import sys; print unicode(sys.argv[1], "utf8").encode("idna")' "$host")
 			MESSAGE="$message"
 			dnssec "$host"
 			if [[ "$protocol" == "https:" ]]; then
 				# port=${BASH_REMATCH[8]:-443}
-				port=${BASH_REMATCH[33]:-443}
+				port=${BASH_REMATCH[32]:-443}
 				certificate "$host" "$port"
 			fi
 			checkdomain "$host"
@@ -1076,7 +1080,9 @@ for i in "${!PORTHOSTNAMES[@]}"; do
 	SUBJECT=${PORTNAMES[i]}
 	message="${PORTNAMES[i]} (${PORTHOSTNAMES[i]}:${PORTS[i]}${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}})"
 	
-	printf "\t${BOLD}%s${NC} (%s:%s%s) is... " "${PORTNAMES[i]}" "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}}"
+	printf "\t${BOLD}"
+	printf '\e]8;;http://%s:%s\e\\%s\e]8;;\e\\' "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PORTNAMES[i]}"
+	printf "${NC} (%s:%s%s) is... " "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}}"
 	
 	if output=$(TIMEFORMAT='%R'; { time nc -z "${PORTHOSTNAMES[i]}" "${PORTS[i]}"; } 2>&1); then
 		aup=1
@@ -1123,7 +1129,9 @@ for i in "${!PINGHOSTNAMES[@]}"; do
 	SUBJECT=${PINGNAMES[i]}
 	message="${PINGNAMES[i]} (${PINGHOSTNAMES[i]})"
 	
-	printf "\t${BOLD}%s${NC} (%s) is... " "${PINGNAMES[i]}" "${PINGHOSTNAMES[i]}"
+	printf "\t${BOLD}"
+	printf '\e]8;;http://%s\e\\%s\e]8;;\e\\' "${PINGHOSTNAMES[i]}" "${PINGNAMES[i]}"
+	printf "${NC} (%s) is... " "${PINGHOSTNAMES[i]}"
 	
 	if output=$(TIMEFORMAT='%R'; { time ping -q -c 1 "${PINGHOSTNAMES[i]}"; } 2>&1); then
 		aup=1
@@ -1163,7 +1171,7 @@ for i in "${!PINGHOSTNAMES[@]}"; do
 	echo
 done
 
-echo -e "${BOLD}Total ${GREEN}█ UP${NC}: $UP\t${BOLD}${RED}█ DOWN${NC}: $DOWN\n"
+printf "${BOLD}Total ${GREEN}█ UP${NC}: %'d\t${BOLD}${RED}█ DOWN${NC}: %'d\n\n" $UP $DOWN
 
 echo -e "${BOLD}Runtime${NC}: $(getSecondsAsDigitalClock "$SECONDS")\n"
 
