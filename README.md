@@ -32,7 +32,7 @@ This script can also be run automatically from a cron job to regularly monitor o
 3. Set the script to run automatically every minute. Replace "* * * * *" with "*/5 * * * *" to run every 5 minutes.
 	1. Run: `crontab -e`.
 	2. Add this to the bottom of the file (replace "/home/username/status/" with the scripts path): `* * * * * cd /home/username/status/ && ./status.sh > /dev/null`
-	3. Or run this to do the above steps: `crontab -l | { cat; echo "* * * * * cd \"$PWD\" && ./status.sh > /dev/null"; } | crontab -`
+	3. Or run this to do the above steps: `crontab -l | { cat; echo "* * * * * cd '$PWD' && ./status.sh > /dev/null"; } | crontab -`
 
 ### Visual monitoring
 
@@ -390,7 +390,7 @@ By default, the latest screenshot for each website monitor is saved to `screensh
 
 This is not a comprehensive list of the Remote Servers Status Script’s functionality. Notifications are sent using the [Send Msg CLI](https://github.com/tdulcet/Send-Msg-CLI).
 
-Source: [Uptime Robot](https://uptimerobot.com/pricing), [StatusCake](https://www.statuscake.com/pricing) and [HetrixTools](https://hetrixtools.com/pricing/uptime-monitor/)
+Source: [Uptime Robot](https://uptimerobot.com/?rid=fc8b28effadf11), [StatusCake](https://www.statuscake.com/pricing) and [HetrixTools](https://hetrixtools.com/pricing/uptime-monitor/)
 
 For Website monitors, by default, the script makes a HEAD [HTTP request](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods) and the monitor is considered up if it responds with a 2XX [HTTP status code](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes). For HTTPS monitors, additional checks are preformed to verify the certificate.
 
@@ -432,6 +432,9 @@ Pull requests welcome! Ideas for contributions:
 * Support setting a timeout value
 * Improve the performance
 * Support checking the monitors in parallel
+* For Website monitors
+	* Support more HTTP request methods/verbs
+	* Support sending custom headers
 * Add keyword and change monitor types
 * Support checking Website monitors in a Web browser with [WebDriver](https://developer.mozilla.org/en-US/docs/Web/WebDriver)
 	* In Firefox, this is possible with [geckodriver](https://firefox-source-docs.mozilla.org/testing/geckodriver/Usage.html#standalone)

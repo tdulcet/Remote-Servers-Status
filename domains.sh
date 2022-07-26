@@ -40,6 +40,7 @@ for d in "${DOMAINS[@]}"; do
 	date=''
 	days=''
 	server=''
+	dnssec=''
 	if output=$(whois -h "whois.iana.org" "${d#*.}" 2>&1) && [[ -n "$output" ]]; then
 		if aserver=$(echo "$output" | grep -i 'whois:'); then
 			server=$(echo "$aserver" | sed -n 's/^[^:]\+[:][[:blank:]]\+//p')
@@ -76,8 +77,6 @@ for d in "${DOMAINS[@]}"; do
 		if adnssec=$(echo "$output" | grep -i -A 1 'dnssec'); then
 			adnssec=$(echo "$adnssec" | head -n 2)
 			dnssec=$(echo "$adnssec" | sed -n '/^.\+:[[:blank:]]*/ {$!N; s/^[^:]\+:[[:space:]]*//p}' | head -n 1)
-		else
-			dnssec=''
 		fi
 	else
 		registrar="Error querying whois server: $output"

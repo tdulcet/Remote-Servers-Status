@@ -17,10 +17,10 @@
 # ./status.sh
 
 # Run every minute
-# crontab -l | { cat; echo "* * * * * cd \"$PWD\" && ./status.sh > /dev/null"; } | crontab -
+# crontab -l | { cat; echo "* * * * * cd '$PWD' && ./status.sh > /dev/null"; } | crontab -
 
 # Run every 5 minutes
-# crontab -l | { cat; echo "*/5 * * * * cd \"$PWD\" && ./status.sh > /dev/null"; } | crontab -
+# crontab -l | { cat; echo "*/5 * * * * cd '$PWD' && ./status.sh > /dev/null"; } | crontab -
 
 set -e
 
@@ -262,7 +262,7 @@ encoded-word() {
 	if [[ $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo -e "$1" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo "${1@E}" | base64 -w 0)?="
 	fi
 }
 
@@ -292,13 +292,13 @@ RE2='^.{1,64}@'
 RE3='^(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+")(\.(([^][:space:]@"(),:;<>[\\.]|\\[^():;<>.])+|"([^"\\]|\\.)+"))*@([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63})$'
 for email in "${TOADDRESSES[@]}"; do
 	if ! [[ $email =~ $RE1 && $email =~ $RE2 && $email =~ $RE3 ]]; then
-		echo "Error: \"$email\" is not a valid e-mail address." >&2
+		echo "Error: '$email' is not a valid e-mail address." >&2
 		exit 1
 	fi
 done
 
 if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
-	echo "Error: \"$FROMADDRESS\" is not a valid e-mail address." >&2
+	echo "Error: '$FROMADDRESS' is not a valid e-mail address." >&2
 	exit 1
 fi
 
@@ -319,12 +319,12 @@ fi
 
 if [[ -n "$CERT" ]]; then
 	if [[ ! -r "$CERT" && ! -f "$CLIENTCERT" ]]; then
-		echo "Error: \"$CERT\" certificate file does not exist." >&2
+		echo "Error: '$CERT' certificate file does not exist." >&2
 		exit 1
 	fi
 
 	if [[ ! -f "$CLIENTCERT" ]]; then
-		echo -e "Saving the client certificate from \"$CERT\" to \"$CLIENTCERT\""
+		echo -e "Saving the client certificate from '$CERT' to '$CLIENTCERT'"
 		echo -e "Please enter the password when prompted.\n"
 		openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes
 	fi
@@ -335,7 +335,10 @@ if [[ -n "$CERT" ]]; then
 	# fi
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
-		issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+		issuer=$(echo "$aissuer" | awk -F'=' '/organizationName=/ { print $2 }')
+		if [[ -z "$issuer" ]]; then
+			issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+		fi
 	else
 		issuer=''
 	fi
@@ -353,7 +356,7 @@ fi
 
 if [[ -n "$PASSPHRASE" ]]; then
 	if ! echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo); then
-		echo "Error: A PGP key pair does not yet exist for \"$FROMADDRESS\" or the passphrase was incorrect." >&2
+		echo "Error: A PGP key pair does not yet exist for '$FROMADDRESS' or the passphrase was incorrect." >&2
 		exit 1
 	fi
 	
@@ -364,10 +367,10 @@ if [[ -n "$PASSPHRASE" ]]; then
 		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
 			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
-				echo -e "Warning: The PGP key pair for \"$FROMADDRESS\" with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
+				echo -e "Warning: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
 			fi
 		else
-			echo "Error: The PGP key pair for \"$FROMADDRESS\" with fingerprint $fingerprint expired $(date -d "@$date")." >&2
+			echo "Error: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expired $(date -d "@$date")." >&2
 			exit 1
 		fi
 	fi
@@ -407,15 +410,15 @@ send() {
 				echo -e -n "${headers}"
 				echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT"
 			elif [[ -n "$PASSPHRASE" ]]; then
-				amessage=$(echo -e "$message")
+				amessage=${message@E}
 				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
 				echo -n "$amessage"
 				echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
 			else
 				echo -e "${headers}MIME-Version: 1.0\n$message"
-			fi | eval curl -sS "$SMTP" --mail-from "$FROMADDRESS" $(printf -- '--mail-rcpt "%s" ' "${TOADDRESSES[@]}" "${CCADDRESSES[@]}" "${BCCADDRESSES[@]}") -T - -u "$USERNAME:$PASSWORD"
+			fi | eval curl -sS "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]@Q}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
 		else
-			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r "$FROMADDRESS"} $([[ -n "$CCADDRESSES" ]] && printf -- '-c "%s" ' "${CCADDRESSES[@]}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b "%s" ' "${BCCADDRESSES[@]}" || echo) -s "\"$1\"" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo "\"undisclosed-recipients: ;\"" || printf -- '"%s" ' "${TOADDRESSES[@]}")"
+			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
 		fi
 	fi
 }
@@ -496,7 +499,7 @@ dnssec() {
 			if if [[ -n "$DNS" ]]; then output=$(dig +noall +answer +authority +cd +dnssec "$type" "${1}" "@$DNS"); else output=$(dig +noall +answer +authority +cd +dnssec "$type" "${1}"); fi && [[ -n "$output" ]]; then
 				if date=$(echo "$output" | awk "\$4 == \"RRSIG\" && \$5 == \"${type^^}\" {print \$9}") && [[ -n "$date" ]]; then
 					date="${date:0:8} ${date:8:2}:${date:10:2}:${date:12:2}"
-					date=$(date -u -d "$date" +%s)
+					date=$(date -ud "$date" +%s)
 					sec=$(( date - $(date -d "$NOW" +%s) ))
 					if [[ $sec -gt 0 ]]; then
 						if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
@@ -559,7 +562,7 @@ revocation() {
 							error ".cert.crl.error$FILE" "❌🔏 Error checking CRL for $SUBJECT" "Error checking Certificate Revocation List (CRL) for $MESSAGE: $reason."
 						fi
 					fi
-					date -u -d "$adate" > "$file"
+					date -ud "$adate" > "$file"
 				else
 					echo "Error: Could not convert the Certificate Revocation List (CRL) file to PEM format."
 				fi
@@ -634,7 +637,7 @@ revocation() {
 							
 							error ".cert.ocsp.error$FILE" "❌🔏 Error checking OCSP response for $SUBJECT" "Error checking Online Certificate Status Protocol (OCSP) response for $MESSAGE: $reason."
 						fi
-						date -u -d "$adate" > "$file"
+						date -ud "$adate" > "$file"
 					else
 						echo -e "\t\t✖️🔓 Error querying OCSP responder ($uri): $output"
 					fi
@@ -653,7 +656,10 @@ revocation() {
 checkcertificate() {
 	local aissuer issuer date sec
 	if aissuer=$(echo "$1" | openssl x509 -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
-		issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+		issuer=$(echo "$aissuer" | awk -F'=' '/organizationName=/ { print $2 }')
+		if [[ -z "$issuer" ]]; then
+			issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+		fi
 	else
 		issuer=''
 	fi
@@ -723,7 +729,7 @@ certificate() {
 		# Check for StartTLS protocol
 		if [[ -n "$3" ]]; then
 			# Verify TLSA resource record
-			if output=$(echo | eval openssl s_client -starttls "$3" -showcerts -connect "$1:$2" -servername "$1" -verify_hostname "$1" -tlsextdebug -status -msg -dane_tlsa_domain "$1" $(printf -- '-dane_tlsa_rrdata "%s" ' "${data[@]}") 2>/dev/null); then
+			if output=$(echo | eval openssl s_client -starttls "${3@Q}" -showcerts -connect "${1@Q}:${2@Q}" -servername "${1@Q}" -verify_hostname "${1@Q}" -tlsextdebug -status -msg -dane_tlsa_domain "${1@Q}" $(printf -- '-dane_tlsa_rrdata %s ' "${data[@]@Q}") 2>/dev/null); then
 				tlsa "$output"
 			else
 				echo -e "\t\t✖️ Error: Could not get certificate with StartTLS."
@@ -732,7 +738,7 @@ certificate() {
 			fi
 		else
 			# Verify TLSA resource record
-			if output=$(echo | eval openssl s_client -showcerts -connect "$1:$2" -servername "$1" -verify_hostname "$1" -tlsextdebug -status -msg -dane_tlsa_domain "$1" $(printf -- '-dane_tlsa_rrdata "%s" ' "${data[@]}") 2>/dev/null); then
+			if output=$(echo | eval openssl s_client -showcerts -connect "${1@Q}:${2@Q}" -servername "${1@Q}" -verify_hostname "${1@Q}" -tlsextdebug -status -msg -dane_tlsa_domain "${1@Q}" $(printf -- '-dane_tlsa_rrdata %s ' "${data[@]@Q}") 2>/dev/null); then
 				tlsa "$output"
 			else
 				echo -e "\t\t✖️ Error: Could not get certificate: $output"
@@ -817,7 +823,7 @@ checkdomain() {
 							# .com.tr
 							adate=${adate%.}
 							# (The rest of the TLDs) or (.pl) or (.fi and .rs) or (.com.tr, .cz and .pt)
-							if date=$(date -u -d "$adate" 2>&1) || date=$(date -u -d "${adate//./-}" 2>&1) || date=$(date -u -d "${adate//.//}" 2>&1) || date=$(date -u -d "$(echo "${adate//./-}" | awk -F'[/-]' '{for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-")}')" 2>&1); then
+							if date=$(date -ud "$adate" 2>&1) || date=$(date -ud "${adate//./-}" 2>&1) || date=$(date -ud "${adate//.//}" 2>&1) || date=$(date -ud "$(echo "${adate//./-}" | awk -F'[/-]' '{for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-")}')" 2>&1); then
 								sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
 								days=$(( sec / 86400 ))
 								if [[ $days -ge 0 ]]; then
@@ -869,9 +875,9 @@ checkblacklist() {
 	# if if [[ -n "$DNS" ]]; then output=$(dig +short a "$1" "@$DNS"); else output=$(dig +short a "$1"); fi && [[ -n "$output" ]]; then
 	if if [[ -n "$DNS" ]]; then output=$(delv +short a "$1" "@$DNS" 2>&1); else output=$(delv +short a "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n "$answers" ]]; then
 		if [[ -n "$DNS" ]]; then output=$(delv +short txt "$1" "@$DNS" 2>&1); else output=$(delv +short txt "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
-		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the \"$2\" blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
+		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the '$2' blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
 		
-		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the \"$2\" blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the \"$2\" DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
+		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the '$2' blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the '$2' DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
 	elif output=$(echo "$output" | grep -i '^;; resolution failed') && echo "$output" | grep -iq 'ncache'; then
 		noerror ".blacklist.$2$FILE"
 	else
