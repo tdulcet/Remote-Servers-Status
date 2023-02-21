@@ -5,6 +5,7 @@
 
 # Requires the curl, netcat, ping, dig, delv, whois and openssl commands
 # sudo apt-get update
+# sudo apt-get install netcat
 # sudo apt-get install dnsutils
 # sudo apt-get install bind9
 # sudo apt-get install whois
@@ -57,7 +58,7 @@ TOEMAILS=(
 # E-mail Priority
 # Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"
 # Requires SMTP server above
-PRIORITY="1 (Highest)"
+# PRIORITY="1 (Highest)"
 
 # Optional Digitally sign the e-mails with an S/MIME Certificate
 # Requires SMTP server above
@@ -210,12 +211,12 @@ fi
 echo -n "Checking internet connection... "
 
 # Check connectivity
-if ! ping4 -q -c 1 google.com > /dev/null 2>&1; then
+if ! ping -4 -q -c 1 google.com > /dev/null 2>&1; then
 	echo -e "\nWarning: Could not reach google.com over IPv4.\n"
 	IPv4=1
 fi
 
-if ! ping6 -q -c 1 google.com > /dev/null 2>&1; then
+if ! ping -6 -q -c 1 google.com > /dev/null 2>&1; then
 	echo -e "\nWarning: Could not reach google.com over IPv6.\n"
 	IPv6=1
 fi
@@ -771,15 +772,15 @@ STATUSES=()
 
 # indexof <array name> <value>
 indexof() {
-    local -n array=$1
+	local -n array=$1
 	local index=-1
 	for i in "${!array[@]}"; do
-        if [[ "${array[i]}" == "$2" ]]; then
-            index=$i
+		if [[ "${array[i]}" == "$2" ]]; then
+			index=$i
 			break
-        fi
-    done
-    echo "$index"
+		fi
+	done
+	echo "$index"
 }
 
 # Check domain expiration

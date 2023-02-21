@@ -15,7 +15,7 @@ This script can be run manually to check the state of one or more remote servers
 
 Requires the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
 
-1. Make sure the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install dnsutils bind9 whois`.
+1. Make sure the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install netcat dnsutils bind9 whois`.
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
 3. Download the script ([status.sh](status.sh)). Run: `wget https://raw.github.com/tdulcet/Remote-Servers-Status/master/status.sh`.
 4. Open the script in an editor and set the variables at the top. At a minimum, you need to provide one To e-mail address and one Website, Port or Ping monitor.
@@ -36,8 +36,8 @@ This script can also be run automatically from a cron job to regularly monitor o
 
 ### Visual monitoring
 
-Optional visual monitoring requires [Firefox](https://www.mozilla.org/en-US/firefox/) ([57 or greater](https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots)) and ImageMagick.
-I recommended you install [Firefox: Developer Edition](https://www.mozilla.org/en-US/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively.
+Optional visual monitoring requires [Firefox](https://www.mozilla.org/firefox/) ([57 or greater](https://web.archive.org/web/20210604151145/https://developer.mozilla.org/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots)) and ImageMagick.
+I recommended you install [Firefox: Developer Edition](https://www.mozilla.org/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively.
 
 1. Complete the steps above.
 2. Make sure Firefox and ImageMagick are installed. On x86_64 Linux, click these links to download the latest version: [Firefox](https://download.mozilla.org/?product=firefox-latest&lang=en-US&os=linux64), [Firefox Developer Edition](https://download.mozilla.org/?product=firefox-devedition-latest&lang=en-US&os=linux64), [Firefox Beta](https://download.mozilla.org/?product=firefox-beta-latest&lang=en-US&os=linux64), [Firefox Nightly](https://download.mozilla.org/?product=firefox-nightly-latest&lang=en-US&os=linux64) or [Firefox Nightly AddressSanitizer](https://firefox-source-docs.mozilla.org/tools/sanitizer/asan_nightly.html#requirements) build and [follow these instruction](http://mzl.la/1xKrIV5) to install. On the Raspberry Pi, run: `sudo apt-get install firefox-esr imagemagick`.
@@ -397,8 +397,8 @@ For Website monitors, by default, the script makes a HEAD [HTTP request](https:/
 Domain, DNSSEC and Blacklist monitoring is done for all Website, Port and Ping monitors. Certificate monitoring is done for all HTTPS monitors whose URLs start with “https://” and all Port monitors who support SSL/TLS or StartTLS.
 Domain monitoring is done once an hour for each domain by default for performance and to avoid the whois limit.
 Blacklist monitoring is done once an hour for each monitor by default for performance.
-Visual monitoring takes a screenshot of each Website monitor every hour by default for performance and sends a notification when the visual difference is greater than or equal to 20%, although this can be configured by changing the `PERCENTAGE` variable.
-Certificate and Domain expiry reminder notifications are sent by default three days before expiration, although this can be configured by changing the `WARNDAYS` variable.
+Visual monitoring takes a screenshot of each Website monitor every hour by default for performance and sends a notification when the visual difference is greater than or equal to 20% by default, although this can be configured by changing the `PERCENTAGE` variable.
+Certificate and Domain expiry reminder notifications are sent three days before expiration by default, although this can be configured by changing the `WARNDAYS` variable.
 Certificate, Domain, DNSSEC, Blacklist and Visual monitoring is only done for monitors that are considered UP.
 
 Note that cURL does not (yet) support [HTTP Strict Transport Security (HSTS)](https://curl.haxx.se/docs/todo.html#Support_HSTS), [HPKP](https://curl.haxx.se/docs/todo.html#Support_HPKP), [TLSA (DANE)](https://curl.haxx.se/docs/todo.html#Support_DANE) or [certificate revocation checking](https://curl.haxx.se/docs/ssl-compared.html), so the script will consider Website monitors as UP if there are errors with these features. DANE TLSA resource record verification is implemented separately using delv and OpenSSL. Certificate revocation checking is implemented separately using OpenSSL.
@@ -432,11 +432,12 @@ Pull requests welcome! Ideas for contributions:
 * Support setting a timeout value
 * Improve the performance
 * Support checking the monitors in parallel
+* Support saving the updates to a database instead of a log file
 * For Website monitors
 	* Support more HTTP request methods/verbs
 	* Support sending custom headers
 * Add keyword and change monitor types
-* Support checking Website monitors in a Web browser with [WebDriver](https://developer.mozilla.org/en-US/docs/Web/WebDriver)
+* Support checking Website monitors in a Web browser with [WebDriver](https://developer.mozilla.org/docs/Web/WebDriver)
 	* In Firefox, this is possible with [geckodriver](https://firefox-source-docs.mozilla.org/testing/geckodriver/Usage.html#standalone)
 * Support [Internationalized domain names](https://en.wikipedia.org/wiki/Internationalized_domain_name) (IDNs) and [International email](https://en.wikipedia.org/wiki/International_email) addresses
 	* Currently they are only supported in Internationalizing Domain Names in Applications (IDNA) encoding.
