@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+title: Remote Servers Status Monitoring Script
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Teal
+    family-names: Dulcet
+    orcid: 'https://orcid.org/0009-0008-6616-2631'
+repository-code: 'https://github.com/tdulcet/Remote-Servers-Status'
+abstract: >-
+  Monitors the status of one or more remote servers and send
+  notifications when status changes state. Supports uptime,
+  SSL/TLS certificate, domain, DNSSEC, DANE TLSA, blacklist
+  and visual monitoring for website, port and ping monitor
+  types.
+license: GPL-3.0

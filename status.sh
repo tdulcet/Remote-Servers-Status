@@ -184,7 +184,7 @@ BOLD='\e[1m'
 NC='\e[m' # No Color
 # COLUMNS=$(tput cols)
 
-NOW=$(date -u)
+NOW=${EPOCHSECONDS:-$(date +%s)}
 SECONDS=0
 
 # Lock directory
@@ -336,16 +336,16 @@ if [[ -n "$CERT" ]]; then
 	# fi
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
-		issuer=$(echo "$aissuer" | awk -F'=' '/organizationName=/ { print $2 }')
+		issuer=$(echo "$aissuer" | awk -F= '/organizationName=/ { print $2 }')
 		if [[ -z "$issuer" ]]; then
-			issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+			issuer=$(echo "$aissuer" | awk -F= '/commonName=/ { print $2 }')
 		fi
 	else
 		issuer=''
 	fi
-	date=$(openssl x509 -in "$CLIENTCERT" -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')
+	date=$(openssl x509 -in "$CLIENTCERT" -noout -enddate | awk -F= '/notAfter=/ { print $2 }')
 	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
-		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
+		sec=$(( $(date -d "$date" +%s) - NOW ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 			echo -e "Warning: The S/MIME Certificate ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
@@ -361,11 +361,11 @@ if [[ -n "$PASSPHRASE" ]]; then
 		exit 1
 	fi
 	
-	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F':' '/^pub/ { print $7 }')
+	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F: '/^pub/ { print $7 }')
 	if [[ -n "$date" ]]; then
 		date=$(echo "$date" | head -n 1)
-		sec=$(( date - $(date -d "$NOW" +%s) ))
-		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F':' '/^fpr/ { print $10 }' | head -n 1)
+		sec=$(( date - NOW ))
+		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F: '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
 			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 				echo -e "Warning: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
@@ -449,12 +449,12 @@ getSecondsAsDigitalClock() {
 
 # stopwatch <date and time>
 stopwatch() {
-	getSecondsAsDigitalClock "$(( $(date -d "$NOW" +%s) - $(date -d "$1" +%s) ))"
+	getSecondsAsDigitalClock "$(( NOW - $(date -d "$1" +%s) ))"
 }
 
 # timer <date and time>
 timer() {
-	getSecondsAsDigitalClock "$(( $(date -d "$1" +%s) - $(date -d "$NOW" +%s) ))"
+	getSecondsAsDigitalClock "$(( $(date -d "$1" +%s) - NOW ))"
 }
 
 # up
@@ -501,7 +501,7 @@ dnssec() {
 				if date=$(echo "$output" | awk "\$4 == \"RRSIG\" && \$5 == \"${type^^}\" {print \$9}") && [[ -n "$date" ]]; then
 					date="${date:0:8} ${date:8:2}:${date:10:2}:${date:12:2}"
 					date=$(date -ud "$date" +%s)
-					sec=$(( date - $(date -d "$NOW" +%s) ))
+					sec=$(( date - NOW ))
 					if [[ $sec -gt 0 ]]; then
 						if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 							echo -e "\t\t⚠🔒 DNSSEC signature for the ${type^^} resource record expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
@@ -540,7 +540,7 @@ revocation() {
 	if uri=$(echo "$output" | grep -i -A 4 'X509v3 CRL Distribution Points'); then
 		# Do not check CRL again until the next update for performance
 		file=".cert.crl$FILE"
-		if [[ ! -r "$file" ]] || [[ -r "$file" && $(( $(date -d "$NOW" +%s) - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
+		if [[ ! -r "$file" ]] || [[ -r "$file" && $(( NOW - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
 			uri=$(echo "$uri" | grep -i 'uri' | sed -n 's/^[^:]\+://p')
 			temp=$(mktemp)
 			# Download CRL
@@ -619,7 +619,7 @@ revocation() {
 		elif uri=$(echo "$1" | openssl x509 -noout -ocsp_uri) && [[ -n "$uri" ]]; then
 			# Do not check OCSP again until the next update for performance
 			file=".cert.ocsp$FILE"
-			if [[ ! -r "$file" ]] || [[ -r "$file" && $(( $(date -d "$NOW" +%s) - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
+			if [[ ! -r "$file" ]] || [[ -r "$file" && $(( NOW - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
 				if openssl verify <(echo "$chain") >/dev/null 2>&1; then
 					# Query OCSP responder
 					if output=$(openssl ocsp -issuer <(echo "$chain") -cert <(echo "$cert") -url "$uri" 2>&1) && echo "$output" | grep -iq "response verify ok"; then
@@ -657,16 +657,16 @@ revocation() {
 checkcertificate() {
 	local aissuer issuer date sec
 	if aissuer=$(echo "$1" | openssl x509 -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
-		issuer=$(echo "$aissuer" | awk -F'=' '/organizationName=/ { print $2 }')
+		issuer=$(echo "$aissuer" | awk -F= '/organizationName=/ { print $2 }')
 		if [[ -z "$issuer" ]]; then
-			issuer=$(echo "$aissuer" | awk -F'=' '/commonName=/ { print $2 }')
+			issuer=$(echo "$aissuer" | awk -F= '/commonName=/ { print $2 }')
 		fi
 	else
 		issuer=''
 	fi
-	date=$(echo "$1" | openssl x509 -noout -enddate | awk -F'=' '/notAfter=/ { print $2 }')
+	date=$(echo "$1" | openssl x509 -noout -enddate | awk -F= '/notAfter=/ { print $2 }')
 	if echo "$1" | openssl x509 -noout -checkend 0 > /dev/null; then
-		sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
+		sec=$(( $(date -d "$date" +%s) - NOW ))
 		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
 			revocation "$1"
 			echo -e "\t\t⚠🔒 Certificate ${issuer:+from “$issuer” }expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
@@ -793,7 +793,7 @@ checkdomain() {
 		if if [[ -n "$DNS" ]]; then output=$(dig +noall +answer +authority soa "$1" "@$DNS"); else output=$(dig +noall +answer +authority soa "$1"); fi && [[ -n "$output" ]] && d=$(echo "$output" | awk '$4 == "SOA" {print $1}') && [[ -n "$d" ]]; then
 			d=${d%.}
 			# Only check each domain once an hour for performance and to avoid the whois limit
-			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(( ($(date -d "$NOW" +%s) - $(date -d "$(<".domain.$d")" +%s)) / 3600 )) -gt 0 ]]; then
+			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(( (NOW - $(<".domain.$d")) / 3600 )) -gt 0 ]]; then
 				index=$(indexof DOMAINS "$d")
 				if [[ $index -ge 0 ]]; then
 					echo -e "${STATUSES[index]}"
@@ -803,7 +803,7 @@ checkdomain() {
 					if output=$(whois "$d" 2>&1) && [[ -n "$output" ]]; then
 						# Get Sponsoring Registrar
 						# The rest of the TLDs, .uk and .co.uk are on two lines
-						if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:\|current registar:\|authorized agency'); then
+						if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:\|current registar:\|authorized agency\|registered by:\|billing contact:\|contacto financiero'); then
 							aregistrar=$(echo "$aregistrar" | head -n 2)
 							registrar=$(echo "$aregistrar" | sed -n '/^.\+[]:][.[:blank:]]*/ {$!N; s/^[^]:]\+[]:][.[:space:]]*//p}' | head -n 1)
 						# .it, on two lines
@@ -819,13 +819,13 @@ checkdomain() {
 							registrar=''
 						fi
 						# Get Expiration Date
-						if adate=$(echo "$output" | grep -i 'expiration\|expires\|expiry\|renewal\|expire\|paid-till\|valid until\|exp date\|validity\|vencimiento'); then
+						if adate=$(echo "$output" | grep -i 'expiration\|expires\|expiry\|renewal:\|expire\|paid-till\|valid until\|exp date\|validity\|vencimiento\|registry fee due\|fecha de corte'); then
 							adate=$(echo "$adate" | head -n 1 | sed -n 's/^[^]:]\+[]:][.[:blank:]]*//p')
 							# .com.tr
 							adate=${adate%.}
 							# (The rest of the TLDs) or (.pl) or (.fi and .rs) or (.com.tr, .cz and .pt)
-							if date=$(date -ud "$adate" 2>&1) || date=$(date -ud "${adate//./-}" 2>&1) || date=$(date -ud "${adate//.//}" 2>&1) || date=$(date -ud "$(echo "${adate//./-}" | awk -F'[/-]' '{for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-")}')" 2>&1); then
-								sec=$(( $(date -d "$date" +%s) - $(date -d "$NOW" +%s) ))
+							if date=$(date -ud "$adate" 2>&1) || date=$(date -ud "${adate//./-}" 2>&1) || date=$(date -ud "${adate//.//}" 2>&1) || date=$(date -ud "$(echo "${adate//./-}" | awk -F'[/-]' '{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-") }')" 2>&1); then
+								sec=$(( $(date -d "$date" +%s) - NOW ))
 								days=$(( sec / 86400 ))
 								if [[ $days -ge 0 ]]; then
 									if [[ $days -lt $WARNDAYS ]]; then
@@ -850,7 +850,7 @@ checkdomain() {
 							text="\t\tError: Could not get domain expiration date."
 						fi
 					else
-						text="Error querying whois server: $output"
+						text="Error querying whois server: $(echo "$output" | head -n 1)"
 					fi
 					
 					DOMAINS+=("$d")
@@ -891,7 +891,7 @@ checkblacklist() {
 checkblacklists() {
 	local bl addresses address reverse
 	# Only check each monitor once an hour for performance
-	if [[ ! -r ".blacklist$FILE" ]] || [[ -r ".blacklist$FILE" && $(( ($(date -d "$NOW" +%s) - $(date -d "$(<".blacklist$FILE")" +%s)) / 3600 )) -gt 0 ]]; then
+	if [[ ! -r ".blacklist$FILE" ]] || [[ -r ".blacklist$FILE" && $(( (NOW - $(<".blacklist$FILE")) / 3600 )) -gt 0 ]]; then
 		# Check Domain Blacklists
 		if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
 			for bl in "${DOMAINBLACKLISTS[@]}"; do
@@ -911,7 +911,7 @@ checkblacklists() {
 			fi
 			for address in "${addresses[@]}"; do
 				# Reverse IPv4 address
-				reverse=$(echo "$address" | awk -F'.' '{for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":".")}')
+				reverse=$(echo "$address" | awk -F. '{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":".") }')
 				for bl in "${IPv4BLACKLISTS[@]}"; do
 					checkblacklist "$reverse.$bl" "$bl" "$address"
 				done
@@ -930,7 +930,7 @@ checkblacklists() {
 			fi
 			for address in "${addresses[@]}"; do
 				# Expand and reverse IPv6 address, adapted from: https://gist.github.com/lsowen/4447d916fd19cbb7fce4
-				reverse=$(echo "$address" | awk -F: 'BEGIN{OFS="";}{addCount = 9 - NF; for(i=1;i<=NF;i++) {if(length($i) == 0) {for(j=1;j<=addCount;j++) {$i = ($i "0000");}} else{$i = substr(("0000" $i), length($i)+5-4);}}; print}' | awk -F '' 'BEGIN{OFS=".";}{for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":".")}')
+				reverse=$(echo "$address" | awk -F: 'BEGIN{ OFS=""; }{ addCount = 9 - NF; for(i=1;i<=NF;i++) { if(length($i) == 0) { for(j=1;j<=addCount;j++) { $i = ($i "0000"); } } else{ $i = substr(("0000" $i), length($i)+5-4); } }; print }' | awk -F '' 'BEGIN{ OFS="."; }{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":".") }')
 				for bl in "${IPv6BLACKLISTS[@]}"; do
 					checkblacklist "$reverse.$bl" "$bl" "$address"
 				done
@@ -949,7 +949,7 @@ checkvisually() {
 	local message
 	if [[ -n "$PERCENTAGE" ]]; then
 		# Only take a screenshot of each monitor once an hour for performance
-		if [[ ! -r ".visual$FILE" ]] || [[ -r ".visual$FILE" && $(( ($(date -d "$NOW" +%s) - $(date -d "$(<".visual$FILE")" +%s)) / 3600 )) -gt 0 ]]; then
+		if [[ ! -r ".visual$FILE" ]] || [[ -r ".visual$FILE" && $(( (NOW - $(<".visual$FILE")) / 3600 )) -gt 0 ]]; then
 			# Need timeout, since will hang on error: https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots
 			if timeout 30 firefox -headless --screenshot "screenshot.png" "$1" > /dev/null 2>&1; then
 				if [[ -r "screenshot$FILE.png" ]]; then
@@ -1148,7 +1148,7 @@ for i in "${!PINGHOSTNAMES[@]}"; do
 	fi
 	
 	time=$(echo "$output" | tail -n 1)
-	rtt=$(echo "$output" | awk -F'/' '/^rtt / {print $5}')
+	rtt=$(echo "$output" | awk -F'/' '/^rtt / { print $5 }')
 	
 	if [[ -n "$aup" ]]; then
 		echo -e "${GREEN}UP${NC}"'!'"  ($time seconds, RTT: $rtt milliseconds)"

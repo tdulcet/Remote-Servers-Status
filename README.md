@@ -13,7 +13,7 @@ Copyright © 2019 Teal Dulcet
 
 This script can be run manually to check the state of one or more remote servers.
 
-Requires the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
+Requires Bash 4.4 and the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
 
 1. Make sure the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install netcat dnsutils bind9 whois`.
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
@@ -401,7 +401,7 @@ Visual monitoring takes a screenshot of each Website monitor every hour by defau
 Certificate and Domain expiry reminder notifications are sent three days before expiration by default, although this can be configured by changing the `WARNDAYS` variable.
 Certificate, Domain, DNSSEC, Blacklist and Visual monitoring is only done for monitors that are considered UP.
 
-Note that cURL does not (yet) support [HTTP Strict Transport Security (HSTS)](https://curl.haxx.se/docs/todo.html#Support_HSTS), [HPKP](https://curl.haxx.se/docs/todo.html#Support_HPKP), [TLSA (DANE)](https://curl.haxx.se/docs/todo.html#Support_DANE) or [certificate revocation checking](https://curl.haxx.se/docs/ssl-compared.html), so the script will consider Website monitors as UP if there are errors with these features. DANE TLSA resource record verification is implemented separately using delv and OpenSSL. Certificate revocation checking is implemented separately using OpenSSL.
+Note that cURL does not (yet) support, [TLSA (DANE)](https://curl.se/docs/todo.html#Support_DANE) or [certificate revocation checking](https://curl.haxx.se/docs/ssl-compared.html), so the script will consider Website monitors as UP if there are errors with these features. DANE TLSA resource record verification is implemented separately using delv and OpenSSL. Certificate revocation checking is implemented separately using OpenSSL.
 
 This script works great with [Mail-in-a-Box](https://mailinabox.email/) (which automatically installs and sets up mail, web and cloud storage servers), since it supports many of the same security features, including DNSSEC and DANE TLSA.
 
@@ -441,5 +441,6 @@ Pull requests welcome! Ideas for contributions:
 	* In Firefox, this is possible with [geckodriver](https://firefox-source-docs.mozilla.org/testing/geckodriver/Usage.html#standalone)
 * Support [Internationalized domain names](https://en.wikipedia.org/wiki/Internationalized_domain_name) (IDNs) and [International email](https://en.wikipedia.org/wiki/International_email) addresses
 	* Currently they are only supported in Internationalizing Domain Names in Applications (IDNA) encoding.
+* Support checking port monitors using `/dev/tcp`
 * Support domain monitoring with the [Registration Data Access Protocol](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol) (RDAP)
 * Support checking for the [HTTP Strict Transport Security](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) (HSTS) header and the [MTA Strict Transport Security](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP_MTA_Strict_Transport_Security) (MTA-STS) file
