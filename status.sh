@@ -39,7 +39,7 @@ fi
 # SEND=1
 
 # To e-mail addresses
-# Send SMSs by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
+# Send text messages by using your mobile providers e-mail to SMS or MMS gateway (https://en.wikipedia.org/wiki/SMS_gateway#Email_clients)
 TOEMAILS=(
 
 )
@@ -49,11 +49,17 @@ TOEMAILS=(
 
 # Optional SMTP server to send e-mails
 # Supported protocols: "smtp" and "smtps".
+# Use "smtps" for a secure connection with SSL/TLS
 # Requires From e-mail address above
 
 # SMTP="smtps://mail.example.com"
 # USERNAME="example"
 # PASSWORD="password"
+
+# Upgrade to a secure connection with StartTLS
+# Requires SMTP server above
+# Uncomment this to enable
+# STARTTLS=1
 
 # E-mail Priority
 # Supported priorities: "5 (Lowest)", "4 (Low)", "Normal", "2 (High)" and "1 (Highest)"
@@ -82,7 +88,7 @@ CLIENTCERT="cert.pem"
 # Website (HTTP(S)) Monitors
 
 WEBSITENAMES=(
-# "Example Website"
+	# "Example Website"
 )
 
 # URL syntax: <scheme>://[user]:[password]@<host>:[port]/[path]
@@ -90,42 +96,42 @@ WEBSITENAMES=(
 # Supported protocols: "http" and "https".
 
 URLS=(
-# https://www.example.com/
+	# https://www.example.com/
 )
 
 # Port Monitors
 
 PORTNAMES=(
-# "Example IMAP Mail Server"
-# "Example SMTP Mail Server"
+	# "Example IMAP Mail Server"
+	# "Example SMTP Mail Server"
 )
 
 PORTHOSTNAMES=(
-# mail.example.com
-# mail.example.com
+	# mail.example.com
+	# mail.example.com
 )
 
 PORTS=(
-# 993
-# 465
+	# 993
+	# 465
 )
 
 # StartTLS Protocols
 # If the port does not support StartTLS, put an empty string: ''.
 # Supported protocols (Source: https://www.openssl.org/docs/manmaster/man1/s_client.html): "smtp", "pop3", "imap", "ftp", "xmpp", "xmpp-server", "irc", "postgres", "mysql", "lmtp", "nntp", "sieve" and "ldap".
 PROTOCOLS=(
-# ''
-# ''
+	# ''
+	# ''
 )
 
 # Ping Monitors
 
 PINGNAMES=(
-# "Example"
+	# "Example"
 )
 
 PINGHOSTNAMES=(
-# example.com
+	# example.com
 )
 
 # Days to warn before DNSSEC, certificate and domain expiration
@@ -150,7 +156,7 @@ DNS="1.1.1.1" # Cloudflare
 # Domain Blacklists
 # Add more from here, if needed: https://hetrixtools.com/blacklist-check/ (enter any domain and copy the blacklists)
 DOMAINBLACKLISTS=(
-dbl.spamhaus.org # Spamhaus Domain Block List
+	dbl.spamhaus.org # Spamhaus Domain Block List
 )
 
 # IPv4 Blacklists
@@ -162,13 +168,13 @@ dbl.spamhaus.org # Spamhaus Domain Block List
 # https://www.dnsbl.info/dnsbl-list.php
 # See comparison here: https://en.wikipedia.org/wiki/Comparison_of_DNS_blacklists
 IPv4BLACKLISTS=(
-zen.spamhaus.org # Spamhaus Block List
+	zen.spamhaus.org # Spamhaus Block List
 )
 
 # IPv6 Blacklists
 # Some of the IPv4 Blacklists from the sources above also support IPv6
 IPv6BLACKLISTS=(
-zen.spamhaus.org # Spamhaus Block List
+	zen.spamhaus.org # Spamhaus Block List
 )
 
 # Visual difference maximum percentage
@@ -327,7 +333,10 @@ if [[ -n "$CERT" ]]; then
 	if [[ ! -f "$CLIENTCERT" ]]; then
 		echo -e "Saving the client certificate from '$CERT' to '$CLIENTCERT'"
 		echo -e "Please enter the password when prompted.\n"
-		openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes
+		if ! openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes; then
+			echo "Error saving the client certificate. Trying again in legacy mode." >&2
+			openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes -legacy
+		fi
 	fi
 	
 	# if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
@@ -398,12 +407,13 @@ log() {
 # Source: https://github.com/tdulcet/Send-Msg-CLI
 # send <subject> [message] [attachment(s)]...
 send() {
-	local headers message amessage
+	local headers boundary message amessage
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="${PRIORITY:+X-Priority: $PRIORITY\n}From: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n"
+			headers="User-Agent: Send Msg CLI\nFrom: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n${PRIORITY:+X-Priority: $PRIORITY\n}"
 			if [[ $# -ge 3 ]]; then
-				message="Content-Type: multipart/mixed; boundary=\"MULTIPART-MIXED-BOUNDARY\"\n\n--MULTIPART-MIXED-BOUNDARY\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--MULTIPART-MIXED-BOUNDARY\nContent-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 -- "$i")\n"; done)--MULTIPART-MIXED-BOUNDARY--"
+				boundary="MULTIPART-MIXED-BOUNDARY"
+				message="Content-Type: multipart/mixed; boundary=\"${boundary}\"\n\n--${boundary}\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--${boundary}\nContent-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 -- "$i")\n"; done)--${boundary}--"
 			else
 				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
 			fi
@@ -412,12 +422,13 @@ send() {
 				echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT"
 			elif [[ -n "$PASSPHRASE" ]]; then
 				amessage=${message@E}
-				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"----MULTIPART-SIGNED-BOUNDARY\"\n\n------MULTIPART-SIGNED-BOUNDARY\n"
+				boundary="----MULTIPART-SIGNED-BOUNDARY"
+				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"\n\n--${boundary}\n"
 				echo -n "$amessage"
-				echo -e "\n------MULTIPART-SIGNED-BOUNDARY\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n------MULTIPART-SIGNED-BOUNDARY--"
+				echo -e "\n--${boundary}\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n--${boundary}--"
 			else
 				echo -e "${headers}MIME-Version: 1.0\n$message"
-			fi | eval curl -sS "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]@Q}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
+			fi | eval curl -sS ${STARTTLS:+--ssl-reqd} "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]@Q}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
 		else
 			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
 		fi
@@ -429,8 +440,8 @@ getSecondsAsDigitalClock() {
 	local sec_num=$1
 	local d=$(( sec_num / 86400 ))
 	local h=$(( (sec_num % 86400) / 3600 ))
-	local m=$(( (sec_num % 86400 % 3600) / 60 ))
-	local s=$(( sec_num % 86400 % 3600 % 60 ))
+	local m=$(( (sec_num % 3600) / 60 ))
+	local s=$(( sec_num % 60 ))
 	local text=''
 	if [[ $d -gt 0 ]]; then
 		text+="$(printf "%'d" "$d") days "
@@ -541,7 +552,7 @@ revocation() {
 		# Do not check CRL again until the next update for performance
 		file=".cert.crl$FILE"
 		if [[ ! -r "$file" ]] || [[ -r "$file" && $(( NOW - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
-			uri=$(echo "$uri" | grep -i 'uri' | sed -n 's/^[^:]\+://p')
+			uri=$(echo "$uri" | grep -i 'uri' | sed -n 's/^[^:]\+://p' | head -n 1)
 			temp=$(mktemp)
 			# Download CRL
 			if output=$(curl -sSo "$temp" "$uri"); then
@@ -873,16 +884,16 @@ checkdomain() {
 # checkblacklist <domain> <blacklist> [IP address]
 checkblacklist() {
 	local answers reasons
-	# if if [[ -n "$DNS" ]]; then output=$(dig +short a "$1" "@$DNS"); else output=$(dig +short a "$1"); fi && [[ -n "$output" ]]; then
-	if if [[ -n "$DNS" ]]; then output=$(delv +short a "$1" "@$DNS" 2>&1); else output=$(delv +short a "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n "$answers" ]]; then
-		if [[ -n "$DNS" ]]; then output=$(delv +short txt "$1" "@$DNS" 2>&1); else output=$(delv +short txt "$1" 2>&1); fi && [[ -n "$output" ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
+	if ! output=$(dig +short a "$1"); then
+		echo "Error: Could not check the $2 blacklist: ${output#*: }"
+	elif [[ -n "$output" ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n "$answers" ]]; then
+		output=$(dig +short txt "$1") && [[ -n "$output" ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
 		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the '$2' blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
 		
 		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the '$2' blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the '$2' DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
-	elif output=$(echo "$output" | grep -i '^;; resolution failed') && echo "$output" | grep -iq 'ncache'; then
-		noerror ".blacklist.$2$FILE"
+	# elif output=$(echo "$output" | grep -i '^;; resolution failed') && echo "$output" | grep -iq 'ncache'; then
 	else
-		echo "Error: Could not check the $2 blacklist: ${output#*: }"
+		noerror ".blacklist.$2$FILE"
 	fi
 }
 

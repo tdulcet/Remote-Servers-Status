@@ -13,7 +13,7 @@ Copyright © 2019 Teal Dulcet
 
 This script can be run manually to check the state of one or more remote servers.
 
-Requires Bash 4.4 and the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
+Requires at least Bash 4.4 and the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
 
 1. Make sure the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install netcat dnsutils bind9 whois`.
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
@@ -414,7 +414,7 @@ This script works great with [Mail-in-a-Box](https://mailinabox.email/) (which a
 * [Dns-Monitoring-Scripts](https://github.com/menandmice-services/dns-monitoring-scripts) (Several unresolved [issues](https://github.com/menandmice-services/dns-monitoring-scripts/issues), many of the tests do not work or require technical knowledge of the DNS server to interpret the results, does not support notifications)
 * [Blacklist check UNIX/Linux utility](https://github.com/adionditsak/blacklist-check-unix-linux-utility) (Checks 115 IPv4 blacklists, but does not support domain or IPv6 blacklists, only checks first IP of domains, slow to run, very little error handling, does not support notifications)
 * [PHP Server Monitor](https://github.com/phpservermon/phpservermon) (Nice web interface with graphs, but requires installing and setting up a web server, PHP and a MySQL database server, only supports uptime monitoring)
-* [Certificate Expiry Monitor](https://github.com/RaymiiOrg/certificate-expiry-monitor) (Basic web interface, but no options, requires installing and setting up a web server and PHP, only supports certificate expiration monitoring)
+* [Certificate Expiry Monitor](https://github.com/sigio/sslmonitor) (Basic web interface, but no options, requires installing and setting up a web server and PHP, only supports certificate expiration monitoring)
 
 ## Contributing
 
