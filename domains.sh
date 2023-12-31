@@ -19,10 +19,10 @@ fi
 
 # List domains in array below or in a "domain-list.txt" file like this: https://github.com/click0/domain-check-2/blob/master/domain-list.txt
 DOMAINS=(
-example.com
-example.net
-example.org
-example.edu
+	example.com
+	example.net
+	example.org
+	example.edu
 )
 FILE="domain-list.txt"
 [[ -r "$FILE" ]] && DOMAINS+=( $(sort -u "$FILE") )

@@ -15,7 +15,7 @@ This script can be run manually to check the state of one or more remote servers
 
 Requires at least Bash 4.4 and the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
 
-1. Make sure the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install netcat dnsutils bind9 whois`.
+1. Verify that the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install netcat dnsutils bind9 whois`.
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
 3. Download the script ([status.sh](status.sh)). Run: `wget https://raw.github.com/tdulcet/Remote-Servers-Status/master/status.sh`.
 4. Open the script in an editor and set the variables at the top. At a minimum, you need to provide one To e-mail address and one Website, Port or Ping monitor.
@@ -31,8 +31,8 @@ This script can also be run automatically from a cron job to regularly monitor o
 2. Open the script in an editor again and uncomment the `SEND` variable to enable the sending of notifications (e-mails and text messages). If the computer is on a residential network or if it does not have an SMTP server setup then you will also need to set the SMTP server variables in order to send e-mails.
 3. Set the script to run automatically every minute. Replace "* * * * *" with "*/5 * * * *" to run every 5 minutes.
 	1. Run: `crontab -e`.
-	2. Add this to the bottom of the file (replace "/home/username/status/" with the scripts path): `* * * * * cd /home/username/status/ && ./status.sh > /dev/null`
-	3. Or run this to do the above steps: `crontab -l | { cat; echo "* * * * * cd '$PWD' && ./status.sh > /dev/null"; } | crontab -`
+	2. Add this to the bottom of the file (replace "/home/username/status/" with the scripts path): `* * * * * cd /home/username/status/ && ./status.sh >/dev/null`
+	3. Or run this to do the above steps: `crontab -l | { cat; echo "* * * * * cd '$PWD' && ./status.sh >/dev/null"; } | crontab -`
 
 ### Visual monitoring
 

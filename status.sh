@@ -18,10 +18,10 @@
 # ./status.sh
 
 # Run every minute
-# crontab -l | { cat; echo "* * * * * cd '$PWD' && ./status.sh > /dev/null"; } | crontab -
+# crontab -l | { cat; echo "* * * * * cd '$PWD' && ./status.sh >/dev/null"; } | crontab -
 
 # Run every 5 minutes
-# crontab -l | { cat; echo "*/5 * * * * cd '$PWD' && ./status.sh > /dev/null"; } | crontab -
+# crontab -l | { cat; echo "*/5 * * * * cd '$PWD' && ./status.sh >/dev/null"; } | crontab -
 
 set -e
 
@@ -214,6 +214,12 @@ fi
 
 # trap 'rm -r "$LOCKDIR"' EXIT
 
+# dig/delv arguments
+dig_delv_args=( ${DNS:+"@$DNS"} )
+
+# curl arguments
+curl_args=() # ${DNS:+--dns-servers "$DNS"}
+
 echo -n "Checking internet connection... "
 
 # Check connectivity
@@ -248,7 +254,7 @@ IPv6RE='^'"$IPv6"'$'
 URLRE='^((https?:)//)?(([^: [:cntrl:]]{1,128})(:[^@ [:cntrl:]]{1,256})?@)?(\['"$IPv6"'\]|'"$IPv4"'|([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63}))(:([[:digit:]]{1,5}))?((/[^/?# [:cntrl:]]*)*)(\?[^# [:cntrl:]]*)?(#[^# [:cntrl:]]*)?$'
 # for i in "${!BASH_REMATCH[@]}"; do echo -e "$i\t${BASH_REMATCH[i]}"; done
 
-if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
+if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" || -n "$STARTTLS" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
 	echo -e "Warning:  One or more of the options you set requires that you also set the SMTP server variables. See the script for more information.\n"
 fi
 
@@ -269,7 +275,7 @@ encoded-word() {
 	if [[ $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo "${1@E}" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo -n "${1@E}" | base64 -w 0)?="
 	fi
 }
 
@@ -508,8 +514,8 @@ dnssec() {
 	local type date sec
 	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
 		for type in soa; do
-			if if [[ -n "$DNS" ]]; then output=$(dig +noall +answer +authority +cd +dnssec "$type" "${1}" "@$DNS"); else output=$(dig +noall +answer +authority +cd +dnssec "$type" "${1}"); fi && [[ -n "$output" ]]; then
-				if date=$(echo "$output" | awk "\$4 == \"RRSIG\" && \$5 == \"${type^^}\" {print \$9}") && [[ -n "$date" ]]; then
+			if output=$(dig +noall +answer +authority +cd +dnssec "${dig_delv_args[@]}" "$type" "${1}") && [[ -n "$output" ]]; then
+				if date=$(echo "$output" | awk '$4 == "RRSIG" && $5 == "'"${type^^}"'" {print $9}') && [[ -n "$date" ]]; then
 					date="${date:0:8} ${date:8:2}:${date:10:2}:${date:12:2}"
 					date=$(date -ud "$date" +%s)
 					sec=$(( date - NOW ))
@@ -555,7 +561,7 @@ revocation() {
 			uri=$(echo "$uri" | grep -i 'uri' | sed -n 's/^[^:]\+://p' | head -n 1)
 			temp=$(mktemp)
 			# Download CRL
-			if output=$(curl -sSo "$temp" "$uri"); then
+			if output=$(curl -sSo "$temp" --compressed "${curl_args[@]}" "$uri"); then
 				if openssl crl -inform DER -in "$temp" -outform PEM -out "$temp"; then
 					adate=$(openssl crl -inform PEM -in "$temp" -noout -text | grep -i 'next update' | sed -n 's/^[^:]\+: //p')
 					if if [[ -n "$chain" ]]; then output=$(openssl verify -crl_check -CAfile "$temp" -untrusted <(echo "$chain") <(echo "$cert") 2>&1); else output=$(openssl verify -crl_check -CAfile "$temp" <(echo "$cert") 2>&1); fi; then
@@ -736,8 +742,8 @@ verifycertificate() {
 certificate() {
 	local data
 	# Get TLSA resource record
-	# if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && if [[ -n "$DNS" ]]; then output=$(dig +dnssec +noall +answer tlsa "_${2}._tcp.${1}" "@$DNS"); else output=$(dig +dnssec +noall +answer tlsa "_${2}._tcp.${1}"); fi && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
-	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && if [[ -n "$DNS" ]]; then output=$(delv +noall tlsa "_${2}._tcp.${1}" "@$DNS" 2>&1); else output=$(delv +noall tlsa "_${2}._tcp.${1}" 2>&1); fi && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | grep -v '^;' | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
+	# if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(dig +dnssec +noall +answer "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}") && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
+	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(delv +noall "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}" 2>&1) && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | grep -v '^;' | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
 		# Check for StartTLS protocol
 		if [[ -n "$3" ]]; then
 			# Verify TLSA resource record
@@ -801,7 +807,7 @@ checkdomain() {
 	# Get root domain from Start of Authority (SOA) resource record
 	local d index aregistrar registrar adate date sec days
 	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
-		if if [[ -n "$DNS" ]]; then output=$(dig +noall +answer +authority soa "$1" "@$DNS"); else output=$(dig +noall +answer +authority soa "$1"); fi && [[ -n "$output" ]] && d=$(echo "$output" | awk '$4 == "SOA" {print $1}') && [[ -n "$d" ]]; then
+		if output=$(dig +noall +answer +authority "${dig_delv_args[@]}" soa "$1") && [[ -n "$output" ]] && d=$(echo "$output" | awk '$4 == "SOA" {print $1}') && [[ -n "$d" ]]; then
 			d=${d%.}
 			# Only check each domain once an hour for performance and to avoid the whois limit
 			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(( (NOW - $(<".domain.$d")) / 3600 )) -gt 0 ]]; then
@@ -914,8 +920,8 @@ checkblacklists() {
 			addresses=()
 			if [[ $1 =~ $IPv4RE ]]; then
 				addresses=( "$1" )
-			# if if [[ -n "$DNS" ]]; then output=$(dig +noall +answer a "$1" "@$DNS"); else output=$(dig +noall +answer a "$1"); fi && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "A" {print $5}') && [[ -n "$addresses" ]]; then
-			elif if [[ -n "$DNS" ]]; then output=$(delv +noall a "$1" "@$DNS" 2>&1); else output=$(delv +noall a "$1" 2>&1); fi && [[ -n "$output" ]]; then
+			# if output=$(dig +noall +answer "${dig_delv_args[@]}" a "$1") && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "A" {print $5}') && [[ -n "$addresses" ]]; then
+			elif output=$(delv +noall "${dig_delv_args[@]}" a "$1" 2>&1) && [[ -n "$output" ]]; then
 				mapfile -t addresses < <(echo "$output" | grep -v '^;' | awk '$4 == "A" {print $5}')
 			elif output=$(echo "$output" | grep -i '^;; resolution failed') && ! echo "$output" | grep -iq 'ncache'; then
 				echo "Error: Could not get Address (A) resource record: ${output#*: }"
@@ -933,8 +939,8 @@ checkblacklists() {
 			addresses=()
 			if [[ $1 =~ $IPv6RE ]]; then
 				addresses=( "$1" )
-			# if if [[ -n "$DNS" ]]; then output=$(dig +noall +answer aaaa "$1" "@$DNS"); else output=$(dig +noall +answer aaaa "$1"); fi && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "AAAA" {print $5}') && [[ -n "$addresses" ]]; then
-			elif if [[ -n "$DNS" ]]; then output=$(delv +noall aaaa "$1" "@$DNS" 2>&1); else output=$(delv +noall aaaa "$1" 2>&1); fi && [[ -n "$output" ]]; then
+			# if output=$(dig +noall +answer "${dig_delv_args[@]}" aaaa "$1") && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "AAAA" {print $5}') && [[ -n "$addresses" ]]; then
+			elif output=$(delv +noall "${dig_delv_args[@]}" aaaa "$1" 2>&1) && [[ -n "$output" ]]; then
 				mapfile -t addresses < <(echo "$output" | grep -v '^;' | awk '$4 == "AAAA" {print $5}')
 			elif output=$(echo "$output" | grep -i '^;; resolution failed') && ! echo "$output" | grep -iq 'ncache'; then
 				echo "Error: Could not get IPv6 address (AAAA) resource record: ${output#*: }"
@@ -1009,9 +1015,9 @@ for i in "${!URLS[@]}"; do
 	printf '\e]8;;%s\e\\%s\e]8;;\e\\' "${URLS[i]}" "${WEBSITENAMES[i]}"
 	printf "${NC} (%s" "${URLS[i]}"
 	
-	# if check=$(curl -sILw '%{http_code}\n' "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
+	# if check=$(curl -sILw '%{http_code}\n' "${curl_args[@]}" "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
 	# --retry 1 --retry-connrefused
-	if output=$(curl -sSILw '%{url_effective}\n%{time_total}\t%{time_starttransfer}\n' "${URLS[i]}" 2>&1); then
+	if output=$(curl -sSILw '%{url_effective}\n%{time_total}\t%{time_starttransfer}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1); then
 		times=( $(echo "$output" | tail -n 1) )
 		output=$(echo "$output" | head -n -1)
 		url=$(echo "$output" | tail -n 1)
@@ -1052,9 +1058,9 @@ for i in "${!URLS[@]}"; do
 		# RE='^((https?:)//)?(([^:]{1,128})(:[^@]{1,256})?@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
 		if [[ ${URLS[i]} =~ $URLRE ]]; then
 			protocol=${BASH_REMATCH[2]}
-			host=${BASH_REMATCH[6]}
+			host=${BASH_REMATCH[7]:-${BASH_REMATCH[6]}}
 			# Convert hostname to Internationalizing Domain Names in Applications (IDNA) encoding
-			# host=$(python3 -c 'import sys; print unicode(sys.argv[1], "utf8").encode("idna")' "$host")
+			# host=$(python3 -c 'import sys; print(sys.argv[1].encode("idna").decode())' "$host")
 			MESSAGE="$message"
 			dnssec "$host"
 			if [[ "$protocol" == "https:" ]]; then
@@ -1086,10 +1092,10 @@ done
 
 # echo -e "${BOLD}Keyword Website (HTTP(S)) Monitors${NC}\n"
 
-# output=$(curl -sSILw '%{url_effective}\n' "${URLS[i]}" 2>&1)
+# output=$(curl -sSILw '%{url_effective}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1)
 # There is no way with cURL to get the HTTP Headers and Body in separate variables and to have cURL follow redirects without using a temp file or two cURL commands
 # I chose to use two commands for performance and to reduce disk ware with SSDs
-# output=$(curl -sSL "${URLS[i]}" 2>&1)
+# output=$(curl -sSL "${curl_args[@]}" "${URLS[i]}" 2>&1)
 
 echo -e "${BOLD}Port Monitors${NC}\n"
 
