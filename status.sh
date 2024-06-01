@@ -66,6 +66,16 @@ TOEMAILS=(
 # Requires SMTP server above
 # PRIORITY="1 (Highest)"
 
+# Allow UTF-8 encoding in mailbox names and header fields
+# Requires SMTP server above
+# Requires support for the SMTPUTF8 extension by the SMTP server
+# SMTPUTF8=1
+
+# Use 8 bit data transmission instead of base64
+# Requires SMTP server above
+# Requires support for the 8BITMIME extension by the SMTP server
+BODY8BITMIME=1
+
 # Optional Digitally sign the e-mails with an S/MIME Certificate
 # Requires SMTP server above
 
@@ -199,7 +209,7 @@ SECONDS=0
 LOCK="~lock"
 
 # Check if on Linux
-if ! echo "$OSTYPE" | grep -iq "linux"; then
+if ! echo "$OSTYPE" | grep -iq '^linux'; then
 	echo "Error: This script must be run on Linux." >&2
 	exit 1
 fi
@@ -272,10 +282,10 @@ fi
 encoded-word() {
 	# ASCII
 	RE='^[] !"#$%&'\''()*+,./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\^_`abcdefghijklmnopqrstuvwxyz{|}~-]*$' # '^[ -~]*$' # '^[[:ascii:]]*$'
-	if [[ $1 =~ $RE ]]; then
+	if [[ -n "$SMTPUTF8" || $1 =~ $RE ]]; then
 		echo "$1"
 	else
-		echo "=?utf-8?B?$(echo -n "${1@E}" | base64 -w 0)?="
+		echo "=?utf-8?B?$(echo -n "$1" | base64 -w 0)?="
 	fi
 }
 
@@ -413,30 +423,85 @@ log() {
 # Source: https://github.com/tdulcet/Send-Msg-CLI
 # send <subject> [message] [attachment(s)]...
 send() {
-	local headers boundary message amessage
+	local boundary signature lang=${LANG%.*}
 	if [[ -n "$SEND" ]]; then
 		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
-			headers="User-Agent: Send Msg CLI\nFrom: $FROMNAME\n$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;\n"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")\n"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")\n")Subject: $(encoded-word "$1")\nDate: $(date -R)\n${PRIORITY:+X-Priority: $PRIORITY\n}"
-			if [[ $# -ge 3 ]]; then
-				boundary="MULTIPART-MIXED-BOUNDARY"
-				message="Content-Type: multipart/mixed; boundary=\"${boundary}\"\n\n--${boundary}\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2\n$(for i in "${@:3}"; do echo "--${boundary}\nContent-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')\nContent-Transfer-Encoding: base64\nContent-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')\n\n$(base64 -- "$i")\n"; done)--${boundary}--"
-			else
-				message="Content-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit\n\n$2"
-			fi
-			if [[ -n "$CERT" ]]; then
-				echo -e -n "${headers}"
-				echo -e "$message" | openssl cms -sign -signer "$CLIENTCERT"
-			elif [[ -n "$PASSPHRASE" ]]; then
-				amessage=${message@E}
-				boundary="----MULTIPART-SIGNED-BOUNDARY"
-				echo -e -n "${headers}MIME-Version: 1.0\nContent-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"\n\n--${boundary}\n"
-				echo -n "$amessage"
-				echo -e "\n--${boundary}\nContent-Type: application/pgp-signature; name=\"signature.asc\"\nContent-Disposition: attachment; filename=\"signature.asc\"\n\n$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo -n "${amessage//$'\n'/$'\r\n'}"))\n\n--${boundary}--"
-			else
-				echo -e "${headers}MIME-Version: 1.0\n$message"
-			fi | eval curl -sS ${STARTTLS:+--ssl-reqd} "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]@Q}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
+			{
+				echo -n "User-Agent: Send Msg CLI
+From: $FROMNAME
+$(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;
+"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
+"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
+")Subject: $(encoded-word "${1@E}")
+Date: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)
+${PRIORITY:+X-Priority: $PRIORITY
+}"
+				if [[ $# -ge 3 ]]; then
+					boundary="MULTIPART-MIXED-BOUNDARY"
+					echo "Content-Type: multipart/mixed; boundary=\"${boundary}\"
+
+--${boundary}
+Content-Type: text/plain; charset=UTF-8
+${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
+")}Content-Transfer-Encoding: $(if [[ -n "$BODY8BITMIME" ]]; then echo "8bit"; else echo "base64"; fi)
+"
+					if [[ -n "$BODY8BITMIME" ]]; then
+						echo -e "$2"
+					else
+						echo -e -n "$2" | base64
+					fi
+					echo
+					for i in "${@:3}"; do
+						echo "--${boundary}
+Content-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}
+' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')
+"
+						base64 -- "$i"
+						echo
+					done
+					echo "--${boundary}--"
+				else
+					echo "Content-Type: text/plain; charset=UTF-8
+${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
+")}Content-Transfer-Encoding: $(if [[ -n "$BODY8BITMIME" ]]; then echo "8bit"; else echo "base64"; fi)
+"
+					if [[ -n "$BODY8BITMIME" ]]; then
+						echo -e "$2"
+					else
+						echo -e -n "$2" | base64
+					fi
+				fi | if [[ -n "$CERT" ]]; then
+					openssl cms -sign -signer "$CLIENTCERT"
+				elif [[ -n "$PASSPHRASE" ]]; then
+					boundary="----MULTIPART-SIGNED-BOUNDARY"
+					echo "MIME-Version: 1.0
+Content-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"
+
+--${boundary}"
+					tee >(
+						signature=$(echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o - -ab -u "$FROMADDRESS" --passphrase-fd 0 <(sed 's/$/\r/'))
+						echo "
+--${boundary}
+Content-Type: application/pgp-signature; name=\"signature.asc\"
+Content-Disposition: attachment; filename=\"signature.asc\"
+
+$signature
+
+--${boundary}--"
+					)
+					wait
+				else
+					echo "MIME-Version: 1.0"
+					cat
+				fi
+			} | eval curl -sS ${STARTTLS:+--ssl-reqd} "${SMTP@Q}" --mail-from "${FROMADDRESS@Q}" $(printf -- '--mail-rcpt %s ' "${TOADDRESSES[@]@Q}" "${CCADDRESSES[@]@Q}" "${BCCADDRESSES[@]}") -T - -u "${USERNAME@Q}:${PASSWORD@Q}"
 		else
-			{ echo -e "$2"; [[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done; } | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
+			{
+				echo -e "$2"
+				[[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done
+			} | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
 		fi
 	fi
 }
@@ -782,23 +847,8 @@ certificate() {
 	fi
 }
 
-# Domains
-DOMAINS=()
 # Domain expirations
-STATUSES=()
-
-# indexof <array name> <value>
-indexof() {
-	local -n array=$1
-	local index=-1
-	for i in "${!array[@]}"; do
-		if [[ "${array[i]}" == "$2" ]]; then
-			index=$i
-			break
-		fi
-	done
-	echo "$index"
-}
+declare -A DOMAINS
 
 # Check domain expiration
 # Should work for all TLDs, except for a few which have no whois server (see https://github.com/rfc1036/whois/blob/next/tld_serv_list) or which do not provide the domain expiration date
@@ -811,9 +861,8 @@ checkdomain() {
 			d=${d%.}
 			# Only check each domain once an hour for performance and to avoid the whois limit
 			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(( (NOW - $(<".domain.$d")) / 3600 )) -gt 0 ]]; then
-				index=$(indexof DOMAINS "$d")
-				if [[ $index -ge 0 ]]; then
-					echo -e "${STATUSES[index]}"
+				if [[ -n "${DOMAINS[$d]}" ]]; then
+					echo -e "${DOMAINS[$d]}"
 				else
 					local text=''
 					# echo "$output" | grep -iq 'no match\|not found\|no data found\|no entries found\|no information\|error\|not satisfy naming rules\|malformed request\|invalid input\|invalid_string\|unassignable\|invalid parameter\|invalid request\|does not exist'
@@ -870,8 +919,7 @@ checkdomain() {
 						text="Error querying whois server: $(echo "$output" | head -n 1)"
 					fi
 					
-					DOMAINS+=("$d")
-					STATUSES+=("$text")
+					DOMAINS[$d]=$text
 					
 					echo -e "$text"
 					
@@ -1199,6 +1247,6 @@ printf "${BOLD}Total ${GREEN}█ UP${NC}: %'d\t${BOLD}${RED}█ DOWN${NC}: %'d\n
 
 echo -e "${BOLD}Runtime${NC}: $(getSecondsAsDigitalClock "$SECONDS")\n"
 
-for d in "${DOMAINS[@]}"; do
+for d in "${!DOMAINS[@]}"; do
 	echo "$NOW" > ".domain.$d"
 done
