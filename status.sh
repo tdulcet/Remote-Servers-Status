@@ -225,7 +225,7 @@ fi
 # trap 'rm -r "$LOCKDIR"' EXIT
 
 # dig/delv arguments
-dig_delv_args=( ${DNS:+"@$DNS"} )
+dig_delv_args=(${DNS:+"@$DNS"})
 
 # curl arguments
 curl_args=() # ${DNS:+--dns-servers "$DNS"}
@@ -233,17 +233,17 @@ curl_args=() # ${DNS:+--dns-servers "$DNS"}
 echo -n "Checking internet connection... "
 
 # Check connectivity
-if ! ping -4 -q -c 1 google.com > /dev/null 2>&1; then
+if ! ping -4 -q -c 1 google.com >/dev/null 2>&1; then
 	echo -e "\nWarning: Could not reach google.com over IPv4.\n"
 	IPv4=1
 fi
 
-if ! ping -6 -q -c 1 google.com > /dev/null 2>&1; then
+if ! ping -6 -q -c 1 google.com >/dev/null 2>&1; then
 	echo -e "\nWarning: Could not reach google.com over IPv6.\n"
 	IPv6=1
 fi
 
-if [[ -n "$IPv4" && -n "$IPv6" ]]; then
+if [[ -n $IPv4 && -n $IPv6 ]]; then
 	echo -e "\nError: Could not reach well known host google.com, please check your internet connection.\n" >&2
 	exit 1
 fi
@@ -264,7 +264,7 @@ IPv6RE='^'"$IPv6"'$'
 URLRE='^((https?:)//)?(([^: [:cntrl:]]{1,128})(:[^@ [:cntrl:]]{1,256})?@)?(\['"$IPv6"'\]|'"$IPv4"'|([[:alnum:]_]([[:alnum:]_-]{0,61}[[:alnum:]_])?\.)+(xn--[[:alnum:]-]{0,58}[[:alnum:]]|[[:alpha:]]{2,63}))(:([[:digit:]]{1,5}))?((/[^/?# [:cntrl:]]*)*)(\?[^# [:cntrl:]]*)?(#[^# [:cntrl:]]*)?$'
 # for i in "${!BASH_REMATCH[@]}"; do echo -e "$i\t${BASH_REMATCH[i]}"; done
 
-if [[ -n "$PRIORITY" || -n "$CERT" || -n "$PASSPHRASE" || -n "$SMTP" || -n "$USERNAME" || -n "$PASSWORD" || -n "$STARTTLS" ]] && ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]]; then
+if [[ -n $PRIORITY || -n $CERT || -n $PASSPHRASE || -n $SMTP || -n $USERNAME || -n $PASSWORD || -n $STARTTLS ]] && ! [[ -n $FROMEMAIL && -n $SMTP ]]; then
 	echo -e "Warning:  One or more of the options you set requires that you also set the SMTP server variables. See the script for more information.\n"
 fi
 
@@ -274,7 +274,7 @@ if [[ ${#TOEMAILS[@]} -eq 0 ]]; then
 fi
 
 # Adapted from: https://github.com/mail-in-a-box/mailinabox/blob/master/setup/network-checks.sh
-if ! [[ -n "$FROMEMAIL" && -n "$SMTP" ]] && ! nc -z -w5 aspmx.l.google.com 25; then
+if ! [[ -n $FROMEMAIL && -n $SMTP ]] && ! nc -z -w5 aspmx.l.google.com 25; then
 	echo -e "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to set the SMTP server variables in order to send e-mails.\n"
 fi
 
@@ -282,15 +282,15 @@ fi
 encoded-word() {
 	# ASCII
 	RE='^[] !"#$%&'\''()*+,./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\^_`abcdefghijklmnopqrstuvwxyz{|}~-]*$' # '^[ -~]*$' # '^[[:ascii:]]*$'
-	if [[ -n "$SMTPUTF8" || $1 =~ $RE ]]; then
+	if [[ -n $SMTPUTF8 || $1 =~ $RE ]]; then
 		echo "$1"
 	else
 		echo "=?utf-8?B?$(echo -n "$1" | base64 -w 0)?="
 	fi
 }
 
-TOADDRESSES=( "${TOEMAILS[@]}" )
-TONAMES=( "${TOEMAILS[@]}" )
+TOADDRESSES=("${TOEMAILS[@]}")
+TONAMES=("${TOEMAILS[@]}")
 FROMADDRESS=$FROMEMAIL
 FROMNAME=$FROMEMAIL
 
@@ -303,7 +303,7 @@ for i in "${!TOADDRESSES[@]}"; do
 	fi
 done
 
-if [[ -n "$FROMADDRESS" ]] && [[ $FROMADDRESS =~ $RE ]]; then
+if [[ -n $FROMADDRESS ]] && [[ $FROMADDRESS =~ $RE ]]; then
 	FROMADDRESS=${BASH_REMATCH[2]:-${BASH_REMATCH[4]}}
 	FROMNAME=${BASH_REMATCH[2]:-$(encoded-word "${BASH_REMATCH[3]}")<${BASH_REMATCH[4]}>}
 fi
@@ -320,7 +320,7 @@ for email in "${TOADDRESSES[@]}"; do
 	fi
 done
 
-if [[ -n "$FROMADDRESS" ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
+if [[ -n $FROMADDRESS ]] && ! [[ $FROMADDRESS =~ $RE1 && $FROMADDRESS =~ $RE2 && $FROMADDRESS =~ $RE3 ]]; then
 	echo "Error: '$FROMADDRESS' is not a valid e-mail address." >&2
 	exit 1
 fi
@@ -340,13 +340,13 @@ if [[ ${#PINGNAMES[@]} -ne ${#PINGHOSTNAMES[@]} ]]; then
 	exit 1
 fi
 
-if [[ -n "$CERT" ]]; then
-	if [[ ! -r "$CERT" && ! -f "$CLIENTCERT" ]]; then
+if [[ -n $CERT ]]; then
+	if [[ ! -r $CERT && ! -f $CLIENTCERT ]]; then
 		echo "Error: '$CERT' certificate file does not exist." >&2
 		exit 1
 	fi
 
-	if [[ ! -f "$CLIENTCERT" ]]; then
+	if [[ ! -s $CLIENTCERT ]]; then
 		echo -e "Saving the client certificate from '$CERT' to '$CLIENTCERT'"
 		echo -e "Please enter the password when prompted.\n"
 		if ! openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes; then
@@ -354,7 +354,7 @@ if [[ -n "$CERT" ]]; then
 			openssl pkcs12 -in "$CERT" -out "$CLIENTCERT" -clcerts -nodes -legacy
 		fi
 	fi
-	
+
 	# if ! output=$(openssl verify -verify_email "$FROMADDRESS" "$CLIENTCERT" 2>/dev/null); then
 		# echo "Error verifying the S/MIME Certificate: $output" >&2
 		# exit 1
@@ -362,16 +362,16 @@ if [[ -n "$CERT" ]]; then
 
 	if aissuer=$(openssl x509 -in "$CLIENTCERT" -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
 		issuer=$(echo "$aissuer" | awk -F= '/organizationName=/ { print $2 }')
-		if [[ -z "$issuer" ]]; then
+		if [[ -z $issuer ]]; then
 			issuer=$(echo "$aissuer" | awk -F= '/commonName=/ { print $2 }')
 		fi
 	else
 		issuer=''
 	fi
 	date=$(openssl x509 -in "$CLIENTCERT" -noout -enddate | awk -F= '/notAfter=/ { print $2 }')
-	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 > /dev/null; then
-		sec=$(( $(date -d "$date" +%s) - NOW ))
-		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+	if openssl x509 -in "$CLIENTCERT" -noout -checkend 0 >/dev/null; then
+		sec=$(($(date -d "$date" +%s) - NOW))
+		if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
 			echo -e "Warning: The S/MIME Certificate ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date")).\n"
 		fi
 	else
@@ -380,19 +380,19 @@ if [[ -n "$CERT" ]]; then
 	fi
 fi
 
-if [[ -n "$PASSPHRASE" ]]; then
+if [[ -n $PASSPHRASE ]]; then
 	if ! echo "$PASSPHRASE" | gpg --pinentry-mode loopback --batch -o /dev/null -ab -u "$FROMADDRESS" --passphrase-fd 0 <(echo); then
 		echo "Error: A PGP key pair does not yet exist for '$FROMADDRESS' or the passphrase was incorrect." >&2
 		exit 1
 	fi
-	
+
 	date=$(gpg -k --with-colons "$FROMADDRESS" | awk -F: '/^pub/ { print $7 }')
-	if [[ -n "$date" ]]; then
+	if [[ -n $date ]]; then
 		date=$(echo "$date" | head -n 1)
-		sec=$(( date - NOW ))
+		sec=$((date - NOW))
 		fingerprint=$(gpg --fingerprint --with-colons "$FROMADDRESS" | awk -F: '/^fpr/ { print $10 }' | head -n 1)
 		if [[ $sec -gt 0 ]]; then
-			if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+			if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
 				echo -e "Warning: The PGP key pair for '$FROMADDRESS' with fingerprint $fingerprint expires in less than $WARNDAYS days ($(date -d "@$date")).\n"
 			fi
 		else
@@ -402,7 +402,7 @@ if [[ -n "$PASSPHRASE" ]]; then
 	fi
 fi
 
-if [[ -n "$CERT" && -n "$PASSPHRASE" ]]; then
+if [[ -n $CERT && -n $PASSPHRASE ]]; then
 	echo -e "Warning: You cannot digitally sign the e-mails with both an S/MIME Certificate and PGP/MIME. S/MIME will be used.\n"
 fi
 
@@ -415,7 +415,7 @@ fi
 # Log to file
 # log <text>
 log() {
-	echo "[$(date)]  $1" >> "$LOG"
+	echo "[$(date)]  $1" >>"$LOG"
 }
 
 # Send e-mail, with optional message and attachments
@@ -424,16 +424,16 @@ log() {
 # send <subject> [message] [attachment(s)]...
 send() {
 	local boundary signature lang=${LANG%.*}
-	if [[ -n "$SEND" ]]; then
-		if [[ -n "$FROMADDRESS" && -n "$SMTP" ]]; then
+	if [[ -n $SEND ]]; then
+		if [[ -n $FROMADDRESS && -n $SMTP ]]; then
 			{
 				echo -n "User-Agent: Send Msg CLI
 From: $FROMNAME
 $(if [[ ${#TONAMES[@]} -eq 0 && ${#CCNAMES[@]} -eq 0 ]]; then echo "To: undisclosed-recipients: ;
-"; else [[ -n "$TONAMES" ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
-"; fi)$([[ -n "$CCNAMES" ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
+"; else [[ -n $TONAMES ]] && echo "To: ${TONAMES[0]}$([[ ${#TONAMES[@]} -gt 1 ]] && printf ', %s' "${TONAMES[@]:1}")
+"; fi)$([[ -n $CCNAMES ]] && echo "Cc: ${CCNAMES[0]}$([[ ${#CCNAMES[@]} -gt 1 ]] && printf ', %s' "${CCNAMES[@]:1}")
 ")Subject: $(encoded-word "${1@E}")
-Date: $(if [[ -n "$UTC" ]]; then date -Rud "@$(( ${EPOCHSECONDS:-$(date +%s)} / 60 * 60 ))"; else date -R; fi)
+Date: $(if [[ -n $UTC ]]; then date -Rud "@$((${EPOCHSECONDS:-$(date +%s)} / 60 * 60))"; else date -R; fi)
 ${PRIORITY:+X-Priority: $PRIORITY
 }"
 				if [[ $# -ge 3 ]]; then
@@ -443,9 +443,9 @@ ${PRIORITY:+X-Priority: $PRIORITY
 --${boundary}
 Content-Type: text/plain; charset=UTF-8
 ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
-")}Content-Transfer-Encoding: $(if [[ -n "$BODY8BITMIME" ]]; then echo "8bit"; else echo "base64"; fi)
+")}Content-Transfer-Encoding: $(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "base64"; fi)
 "
-					if [[ -n "$BODY8BITMIME" ]]; then
+					if [[ -n $BODY8BITMIME ]]; then
 						echo -e "$2"
 					else
 						echo -e -n "$2" | base64
@@ -465,16 +465,16 @@ Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective
 				else
 					echo "Content-Type: text/plain; charset=UTF-8
 ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
-")}Content-Transfer-Encoding: $(if [[ -n "$BODY8BITMIME" ]]; then echo "8bit"; else echo "base64"; fi)
+")}Content-Transfer-Encoding: $(if [[ -n $BODY8BITMIME ]]; then echo "8bit"; else echo "base64"; fi)
 "
-					if [[ -n "$BODY8BITMIME" ]]; then
+					if [[ -n $BODY8BITMIME ]]; then
 						echo -e "$2"
 					else
 						echo -e -n "$2" | base64
 					fi
-				fi | if [[ -n "$CERT" ]]; then
+				fi | if [[ -n $CERT ]]; then
 					openssl cms -sign -signer "$CLIENTCERT"
-				elif [[ -n "$PASSPHRASE" ]]; then
+				elif [[ -n $PASSPHRASE ]]; then
 					boundary="----MULTIPART-SIGNED-BOUNDARY"
 					echo "MIME-Version: 1.0
 Content-Type: multipart/signed; protocol=\"application/pgp-signature\"; micalg=pgp-sha1; boundary=\"${boundary}\"
@@ -501,7 +501,7 @@ $signature
 			{
 				echo -e "$2"
 				[[ $# -ge 3 ]] && for i in "${@:3}"; do uuencode -- "$i" "$(basename -- "$i")"; done
-			} | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n "$CCADDRESSES" ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n "$BCCADDRESSES" ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
+			} | eval mail ${FROMADDRESS:+-r ${FROMADDRESS@Q}} $([[ -n $CCADDRESSES ]] && printf -- '-c %s ' "${CCADDRESSES[@]@Q}" || echo) $([[ -n $BCCADDRESSES ]] && printf -- '-b %s ' "${BCCADDRESSES[@]@Q}" || echo) -s "${1@Q}" -- "$([[ ${#TOADDRESSES[@]} -eq 0 ]] && echo '"undisclosed-recipients: ;"' || printf -- '%s ' "${TOADDRESSES[@]@Q}")"
 		fi
 	fi
 }
@@ -509,10 +509,10 @@ $signature
 # getSecondsAsDigitalClock <seconds>
 getSecondsAsDigitalClock() {
 	local sec_num=$1
-	local d=$(( sec_num / 86400 ))
-	local h=$(( (sec_num % 86400) / 3600 ))
-	local m=$(( (sec_num % 3600) / 60 ))
-	local s=$(( sec_num % 60 ))
+	local d=$((sec_num / 86400))
+	local h=$(((sec_num % 86400) / 3600))
+	local m=$(((sec_num % 3600) / 60))
+	local s=$((sec_num % 60))
 	local text=''
 	if [[ $d -gt 0 ]]; then
 		text+="$(printf "%'d" "$d") days "
@@ -531,12 +531,12 @@ getSecondsAsDigitalClock() {
 
 # stopwatch <date and time>
 stopwatch() {
-	getSecondsAsDigitalClock "$(( NOW - $(date -d "$1" +%s) ))"
+	getSecondsAsDigitalClock "$((NOW - $(date -d "$1" +%s)))"
 }
 
 # timer <date and time>
 timer() {
-	getSecondsAsDigitalClock "$(( $(date -d "$1" +%s) - NOW ))"
+	getSecondsAsDigitalClock "$(($(date -d "$1" +%s) - NOW))"
 }
 
 # up
@@ -551,14 +551,14 @@ up() {
 
 # down
 down() {
-	date -u > "$FILE"
+	date -u >"$FILE"
 	log "$MESSAGE"
 	send "⬇️ $SUBJECT is DOWN"'!' "$MESSAGE\n\nThis script will alert you when it is back up.\n"
 }
 
 # error <error file> <subject> <message> [attachment]
 error() {
-	if [[ ! -r "$1" ]]; then
+	if [[ ! -r $1 ]]; then
 		>"$1"
 		log "$3"
 		send "$2" "$3\n" "$4"
@@ -567,7 +567,7 @@ error() {
 
 # noerror <error file>
 noerror() {
-	if [[ -r "$1" ]]; then
+	if [[ -r $1 ]]; then
 		rm -- "$1"
 	fi
 }
@@ -579,25 +579,25 @@ dnssec() {
 	local type date sec
 	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
 		for type in soa; do
-			if output=$(dig +noall +answer +authority +cd +dnssec "${dig_delv_args[@]}" "$type" "${1}") && [[ -n "$output" ]]; then
-				if date=$(echo "$output" | awk '$4 == "RRSIG" && $5 == "'"${type^^}"'" {print $9}') && [[ -n "$date" ]]; then
+			if output=$(dig +noall +answer +authority +cd +dnssec "${dig_delv_args[@]}" "$type" "${1}") && [[ -n $output ]]; then
+				if date=$(echo "$output" | awk '$4 == "RRSIG" && $5 == "'"${type^^}"'" {print $9}') && [[ -n $date ]]; then
 					date="${date:0:8} ${date:8:2}:${date:10:2}:${date:12:2}"
 					date=$(date -ud "$date" +%s)
-					sec=$(( date - NOW ))
+					sec=$((date - NOW))
 					if [[ $sec -gt 0 ]]; then
-						if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+						if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
 							echo -e "\t\t⚠🔒 DNSSEC signature for the ${type^^} resource record expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
-							
+
 							# error ".dnssec.$type.expires$FILE" "⚠️🔒 DNSSEC signature for $SUBJECT expires in < $WARNDAYS days" "The DNSSEC signature for the ${type^^} Resource Record (RR) for $MESSAGE expires in less than $WARNDAYS days ($(date -d "@$date"))."
 						else
 							echo -e "\t\t🔒 DNSSEC signature for the ${type^^} resource record expires in $(getSecondsAsDigitalClock "$sec")."
-							
+
 							# noerror ".dnssec.$type.expires$FILE"
 							# noerror ".dnssec.$type.expired$FILE"
 						fi
 					else
 						echo -e "\t\t✖️🔓 DNSSEC signature for the ${type^^} resource record expired ${RED}$(date -d "@$date")${NC}."
-						
+
 						# error ".dnssec.$type.expired$FILE" "❌🔓 DNSSEC signature for $SUBJECT expired" "The DNSSEC signature for the ${type^^} Resource Record (RR) for $MESSAGE expired $(date -d "@$date")."
 					fi
 				fi
@@ -622,30 +622,30 @@ revocation() {
 	if uri=$(echo "$output" | grep -i -A 4 'X509v3 CRL Distribution Points'); then
 		# Do not check CRL again until the next update for performance
 		file=".cert.crl$FILE"
-		if [[ ! -r "$file" ]] || [[ -r "$file" && $(( NOW - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
+		if [[ ! -r $file ]] || [[ -r $file && $((NOW - $(date -d "$(<"$file")" +%s))) -gt 0 ]]; then
 			uri=$(echo "$uri" | grep -i 'uri' | sed -n 's/^[^:]\+://p' | head -n 1)
 			temp=$(mktemp)
 			# Download CRL
 			if output=$(curl -sSo "$temp" --compressed "${curl_args[@]}" "$uri"); then
 				if openssl crl -inform DER -in "$temp" -outform PEM -out "$temp"; then
 					adate=$(openssl crl -inform PEM -in "$temp" -noout -text | grep -i 'next update' | sed -n 's/^[^:]\+: //p')
-					if if [[ -n "$chain" ]]; then output=$(openssl verify -crl_check -CAfile "$temp" -untrusted <(echo "$chain") <(echo "$cert") 2>&1); else output=$(openssl verify -crl_check -CAfile "$temp" <(echo "$cert") 2>&1); fi; then
+					if if [[ -n $chain ]]; then output=$(openssl verify -crl_check -CAfile "$temp" -untrusted <(echo "$chain") <(echo "$cert") 2>&1); else output=$(openssl verify -crl_check -CAfile "$temp" <(echo "$cert") 2>&1); fi; then
 						# echo -e "\t\t🔒 Certificate Revocation List (CRL): Certificate has NOT been revoked (${output#*: })."
 						noerror ".cert.crl.error$FILE"
 					else
 						if response=$(echo "$output" | grep -i 'error') && echo "$response" | grep -iq "revoked"; then
 							reason=$(echo "$response" | head -n 1 | sed -n 's/^[^:]\+: //p')
 							echo -e "\t\t✖️🔓 Certificate Revocation List (CRL): Certificate has been revoked ($reason)."
-							
+
 							error ".cert.crl.error$FILE" "❌🔏 CRL: Certificate for $SUBJECT revoked" "Certificate Revocation List (CRL): The certificate for $MESSAGE has been revoked ($reason)."
 						else
 							reason=$(echo "$response" | head -n 1 | sed -n 's/^[^:]\+: //p')
 							echo -e "\t\t✖️🔓 Error checking Certificate Revocation List (CRL): $reason"
-							
+
 							error ".cert.crl.error$FILE" "❌🔏 Error checking CRL for $SUBJECT" "Error checking Certificate Revocation List (CRL) for $MESSAGE: $reason."
 						fi
 					fi
-					date -ud "$adate" > "$file"
+					date -ud "$adate" >"$file"
 				else
 					echo "Error: Could not convert the Certificate Revocation List (CRL) file to PEM format."
 				fi
@@ -657,7 +657,7 @@ revocation() {
 			echo -e "\t\tℹ Certificate Revocation List (CRL) has already been checked since the last update. Next update: $(date -d "$(<"$file")")"
 		fi
 	fi
-	if [[ -n "$chain" ]]; then
+	if [[ -n $chain ]]; then
 		# Check Online Certificate Status Protocol (OCSP) stapling
 		if ! echo "$1" | grep -iq 'ocsp response: no response sent'; then
 			# TLS 1.2 or earlier
@@ -667,7 +667,7 @@ revocation() {
 				response=${response:8}
 			# TLS 1.3
 			elif length=$(echo "$1" | grep 'TLS server extension "status request" (id=5), len='); then
-				length=$(( 2 * ${length##*=} ))
+				length=$((2 * ${length##*=}))
 				response=$(echo "$1" | sed -n '/^TLS server extension "status request" (id=5), len=/,/<<</{//!p;}' | awk '{ print $3 $4 $5 $6 $7 $8 $9 $10 $11 $12 $13 $14 $15 $16 $17 }')
 				response=${response//[-[:space:]]/}
 				response="${response:0:length}"
@@ -684,11 +684,11 @@ revocation() {
 						noerror ".cert.ocsp.error$FILE"
 					elif echo "$response" | grep -iq "revoked"; then
 						echo -e "\t\t✖️🔓 OCSP stapling: Certificate has been revoked ($reason)."
-						
+
 						error ".cert.ocsp.error$FILE" "❌🔏 OCSP stapling: Certificate for $SUBJECT revoked" "Online Certificate Status Protocol (OCSP) stapling: The certificate for $MESSAGE has been revoked ($reason)."
 					else
 						echo -e "\t\t✖️🔓 Error checking stapled OCSP response: $reason"
-						
+
 						error ".cert.ocsp.error$FILE" "❌🔏 Error checking stapled OCSP response for $SUBJECT" "Error checking stapled Online Certificate Status Protocol (OCSP) response for $MESSAGE: $reason."
 					fi
 				else
@@ -698,10 +698,10 @@ revocation() {
 				echo "Error: Could not verify certificate chain."
 			fi
 		# Check Online Certificate Status Protocol (OCSP)
-		elif uri=$(echo "$1" | openssl x509 -noout -ocsp_uri) && [[ -n "$uri" ]]; then
+		elif uri=$(echo "$1" | openssl x509 -noout -ocsp_uri) && [[ -n $uri ]]; then
 			# Do not check OCSP again until the next update for performance
 			file=".cert.ocsp$FILE"
-			if [[ ! -r "$file" ]] || [[ -r "$file" && $(( NOW - $(date -d "$(<"$file")" +%s) )) -gt 0 ]]; then
+			if [[ ! -r $file ]] || [[ -r $file && $((NOW - $(date -d "$(<"$file")" +%s))) -gt 0 ]]; then
 				if openssl verify <(echo "$chain") >/dev/null 2>&1; then
 					# Query OCSP responder
 					if output=$(openssl ocsp -issuer <(echo "$chain") -cert <(echo "$cert") -url "$uri" 2>&1) && echo "$output" | grep -iq "response verify ok"; then
@@ -713,14 +713,14 @@ revocation() {
 							noerror ".cert.ocsp.error$FILE"
 						elif echo "$response" | grep -iq "revoked"; then
 							echo -e "\t\t✖️🔓 OCSP: Certificate has been revoked ($reason)."
-							
+
 							error ".cert.ocsp.error$FILE" "❌🔏 OCSP: Certificate for $SUBJECT revoked" "Online Certificate Status Protocol (OCSP): The certificate for $MESSAGE has been revoked ($reason)."
 						else
 							echo -e "\t\t✖️🔓 Error checking OCSP response: $reason"
-							
+
 							error ".cert.ocsp.error$FILE" "❌🔏 Error checking OCSP response for $SUBJECT" "Error checking Online Certificate Status Protocol (OCSP) response for $MESSAGE: $reason."
 						fi
-						date -ud "$adate" > "$file"
+						date -ud "$adate" >"$file"
 					else
 						echo -e "\t\t✖️🔓 Error querying OCSP responder ($uri): $output"
 					fi
@@ -740,30 +740,30 @@ checkcertificate() {
 	local aissuer issuer date sec
 	if aissuer=$(echo "$1" | openssl x509 -noout -issuer -nameopt multiline,-align,-esc_msb,utf8,-space_eq); then
 		issuer=$(echo "$aissuer" | awk -F= '/organizationName=/ { print $2 }')
-		if [[ -z "$issuer" ]]; then
+		if [[ -z $issuer ]]; then
 			issuer=$(echo "$aissuer" | awk -F= '/commonName=/ { print $2 }')
 		fi
 	else
 		issuer=''
 	fi
 	date=$(echo "$1" | openssl x509 -noout -enddate | awk -F= '/notAfter=/ { print $2 }')
-	if echo "$1" | openssl x509 -noout -checkend 0 > /dev/null; then
-		sec=$(( $(date -d "$date" +%s) - NOW ))
-		if [[ $(( sec / 86400 )) -lt $WARNDAYS ]]; then
+	if echo "$1" | openssl x509 -noout -checkend 0 >/dev/null; then
+		sec=$(($(date -d "$date" +%s) - NOW))
+		if [[ $((sec / 86400)) -lt $WARNDAYS ]]; then
 			revocation "$1"
 			echo -e "\t\t⚠🔒 Certificate ${issuer:+from “$issuer” }expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
-			
+
 			error ".cert.expires$FILE" "⚠️🔏 Certificate for $SUBJECT expires in < $WARNDAYS days" "The certificate for $MESSAGE ${issuer:+from “$issuer” }expires in less than $WARNDAYS days ($(date -d "$date"))."
 		else
 			revocation "$1"
 			echo -e "\t\t🔒 Certificate ${issuer:+from “$issuer” }expires in $(getSecondsAsDigitalClock "$sec")."
-			
+
 			noerror ".cert.expires$FILE"
 			noerror ".cert.expired$FILE"
 		fi
 	else
 		echo -e "\t\t✖️🔓 Certificate ${issuer:+from “$issuer” }expired ${RED}$(date -d "$date")${NC}."
-		
+
 		error ".cert.expired$FILE" "❌🔏 Certificate for $SUBJECT expired" "The certificate for $MESSAGE ${issuer:+from “$issuer” }expired $(date -d "$date")."
 	fi
 }
@@ -774,13 +774,13 @@ tlsa() {
 	local aerror
 	if ! aerror=$(echo "$1" | grep -i 'verification error'); then
 		echo -e "\t\t✔ DANE TLSA resource record verified."
-		
+
 		noerror ".cert.error$FILE"
 		checkcertificate "$1"
 	else
 		aerror=${aerror#*: }
 		echo -e "\t\t✖️🔓 Error: Could not verify DANE TLSA resource record with certificate: $aerror"
-		
+
 		error ".cert.error$FILE" "❌🔏 Error verifying TLSA RR for $SUBJECT" "Error verifying DANE TLSA Resource Record (RR) with certificate for $MESSAGE: $aerror."
 		checkcertificate "$1"
 	fi
@@ -796,7 +796,7 @@ verifycertificate() {
 	else
 		aerror=${aerror#*: }
 		echo -e "\t\t✖️🔓 Error: Could not verify certificate: $aerror"
-		
+
 		error ".cert.error$FILE" "❌🔏 Error verifying certificate for $SUBJECT" "Error verifying certificate for $MESSAGE: $aerror."
 		checkcertificate "$1"
 	fi
@@ -808,15 +808,15 @@ certificate() {
 	local data
 	# Get TLSA resource record
 	# if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(dig +dnssec +noall +answer "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}") && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
-	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(delv +noall "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}" 2>&1) && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | grep -v '^;' | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
+	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(delv +noall "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}" 2>&1) && [[ -n $output ]] && mapfile -t data < <(echo "$output" | grep -v '^;' | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n $data ]]; then
 		# Check for StartTLS protocol
-		if [[ -n "$3" ]]; then
+		if [[ -n $3 ]]; then
 			# Verify TLSA resource record
 			if output=$(echo | eval openssl s_client -starttls "${3@Q}" -showcerts -connect "${1@Q}:${2@Q}" -servername "${1@Q}" -verify_hostname "${1@Q}" -tlsextdebug -status -msg -dane_tlsa_domain "${1@Q}" $(printf -- '-dane_tlsa_rrdata %s ' "${data[@]@Q}") 2>/dev/null); then
 				tlsa "$output"
 			else
 				echo -e "\t\t✖️ Error: Could not get certificate with StartTLS."
-				
+
 				error ".cert.error$FILE" "❌🔏 Error getting certificate for $SUBJECT with StartTLS" "Error getting certificate for $MESSAGE with StartTLS."
 			fi
 		else
@@ -825,18 +825,18 @@ certificate() {
 				tlsa "$output"
 			else
 				echo -e "\t\t✖️ Error: Could not get certificate: $output"
-				
+
 				error ".cert.error$FILE" "❌🔏 Error getting certificate for $SUBJECT" "Error getting certificate for $MESSAGE: $output."
 			fi
 		fi
 	else
 		# Check for StartTLS protocol
-		if [[ -n "$3" ]]; then
+		if [[ -n $3 ]]; then
 			if output=$(echo | openssl s_client -starttls "$3" -showcerts -connect "$1:$2" -servername "$1" -verify_hostname "$1" -tlsextdebug -status -msg 2>/dev/null); then
 				verifycertificate "$output"
 			else
 				echo -e "\t\t✖️ Error: Could not get certificate with StartTLS."
-				
+
 				error ".cert.error$FILE" "❌🔏 Error getting certificate for $SUBJECT with StartTLS" "Error getting certificate for $MESSAGE with StartTLS."
 			fi
 		else
@@ -857,16 +857,16 @@ checkdomain() {
 	# Get root domain from Start of Authority (SOA) resource record
 	local d index aregistrar registrar adate date sec days
 	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
-		if output=$(dig +noall +answer +authority "${dig_delv_args[@]}" soa "$1") && [[ -n "$output" ]] && d=$(echo "$output" | awk '$4 == "SOA" {print $1}') && [[ -n "$d" ]]; then
+		if output=$(dig +noall +answer +authority "${dig_delv_args[@]}" soa "$1") && [[ -n $output ]] && d=$(echo "$output" | awk '$4 == "SOA" {print $1}') && [[ -n $d ]]; then
 			d=${d%.}
 			# Only check each domain once an hour for performance and to avoid the whois limit
-			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(( (NOW - $(<".domain.$d")) / 3600 )) -gt 0 ]]; then
-				if [[ -n "${DOMAINS[$d]}" ]]; then
+			if [[ ! -r ".domain.$d" ]] || [[ -r ".domain.$d" && $(((NOW - $(<".domain.$d")) / 3600)) -gt 0 ]]; then
+				if [[ -n ${DOMAINS[$d]} ]]; then
 					echo -e "${DOMAINS[$d]}"
 				else
 					local text=''
 					# echo "$output" | grep -iq 'no match\|not found\|no data found\|no entries found\|no information\|error\|not satisfy naming rules\|malformed request\|invalid input\|invalid_string\|unassignable\|invalid parameter\|invalid request\|does not exist'
-					if output=$(whois "$d" 2>&1) && [[ -n "$output" ]]; then
+					if output=$(whois "$d" 2>&1) && [[ -n $output ]]; then
 						# Get Sponsoring Registrar
 						# The rest of the TLDs, .uk and .co.uk are on two lines
 						if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:\|current registar:\|authorized agency\|registered by:\|billing contact:\|contacto financiero'); then
@@ -891,22 +891,22 @@ checkdomain() {
 							adate=${adate%.}
 							# (The rest of the TLDs) or (.pl) or (.fi and .rs) or (.com.tr, .cz and .pt)
 							if date=$(date -ud "$adate" 2>&1) || date=$(date -ud "${adate//./-}" 2>&1) || date=$(date -ud "${adate//.//}" 2>&1) || date=$(date -ud "$(echo "${adate//./-}" | awk -F'[/-]' '{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-") }')" 2>&1); then
-								sec=$(( $(date -d "$date" +%s) - NOW ))
-								days=$(( sec / 86400 ))
+								sec=$(($(date -d "$date" +%s) - NOW))
+								days=$((sec / 86400))
 								if [[ $days -ge 0 ]]; then
 									if [[ $days -lt $WARNDAYS ]]; then
 										text="\t\t⚠🌐 Domain ($d) ${registrar:+from “$registrar” }expires in ${YELLOW}$(getSecondsAsDigitalClock "$sec")${NC}."
-										
+
 										error ".domain.expires.$d" "⚠️🌐 Domain $d expires in < $WARNDAYS days" "The domain $d ${registrar:+from “$registrar” }expires in less than $WARNDAYS days ($(date -d "$date"))."
 									else
 										text="\t\t🌐 Domain ($d) ${registrar:+from “$registrar” }expires in $(getSecondsAsDigitalClock "$sec")."
-										
+
 										noerror ".domain.expires.$d"
 										noerror ".domain.expired.$d"
 									fi
 								else
 									text="\t\t✖️🌐 Domain ($d) ${registrar:+from “$registrar” }expired ${RED}$(date -d "$date")${NC}."
-									
+
 									error ".domain.expired.$d" "❌🌐 Domain $d expired" "The domain $d ${registrar:+from “$registrar” }expired $(date -d "$date")."
 								fi
 							else
@@ -918,11 +918,11 @@ checkdomain() {
 					else
 						text="Error querying whois server: $(echo "$output" | head -n 1)"
 					fi
-					
+
 					DOMAINS[$d]=$text
-					
+
 					echo -e "$text"
-					
+
 					# sleep 2
 				fi
 			else
@@ -940,11 +940,11 @@ checkblacklist() {
 	local answers reasons
 	if ! output=$(dig +short a "$1"); then
 		echo "Error: Could not check the $2 blacklist: ${output#*: }"
-	elif [[ -n "$output" ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n "$answers" ]]; then
-		output=$(dig +short txt "$1") && [[ -n "$output" ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
-		echo -e "\t\t⚠🚫 Warning: The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") is listed in the '$2' blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
-		
-		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n "$3" ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the '$2' blacklist" "The $([[ -n "$3" ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the '$2' DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
+	elif [[ -n $output ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n $answers ]]; then
+		output=$(dig +short txt "$1") && [[ -n $output ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
+		echo -e "\t\t⚠🚫 Warning: The $([[ -n $3 ]] && echo "IP address ($3)" || echo "domain") is listed in the '$2' blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
+
+		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n $3 ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the '$2' blacklist" "The $([[ -n $3 ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the '$2' DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
 	# elif output=$(echo "$output" | grep -i '^;; resolution failed') && echo "$output" | grep -iq 'ncache'; then
 	else
 		noerror ".blacklist.$2$FILE"
@@ -956,7 +956,7 @@ checkblacklist() {
 checkblacklists() {
 	local bl addresses address reverse
 	# Only check each monitor once an hour for performance
-	if [[ ! -r ".blacklist$FILE" ]] || [[ -r ".blacklist$FILE" && $(( (NOW - $(<".blacklist$FILE")) / 3600 )) -gt 0 ]]; then
+	if [[ ! -r ".blacklist$FILE" ]] || [[ -r ".blacklist$FILE" && $(((NOW - $(<".blacklist$FILE")) / 3600)) -gt 0 ]]; then
 		# Check Domain Blacklists
 		if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
 			for bl in "${DOMAINBLACKLISTS[@]}"; do
@@ -967,9 +967,9 @@ checkblacklists() {
 		if [[ ! $1 =~ $IPv6RE ]]; then
 			addresses=()
 			if [[ $1 =~ $IPv4RE ]]; then
-				addresses=( "$1" )
+				addresses=("$1")
 			# if output=$(dig +noall +answer "${dig_delv_args[@]}" a "$1") && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "A" {print $5}') && [[ -n "$addresses" ]]; then
-			elif output=$(delv +noall "${dig_delv_args[@]}" a "$1" 2>&1) && [[ -n "$output" ]]; then
+			elif output=$(delv +noall "${dig_delv_args[@]}" a "$1" 2>&1) && [[ -n $output ]]; then
 				mapfile -t addresses < <(echo "$output" | grep -v '^;' | awk '$4 == "A" {print $5}')
 			elif output=$(echo "$output" | grep -i '^;; resolution failed') && ! echo "$output" | grep -iq 'ncache'; then
 				echo "Error: Could not get Address (A) resource record: ${output#*: }"
@@ -986,9 +986,9 @@ checkblacklists() {
 		if [[ ! $1 =~ $IPv4RE ]]; then
 			addresses=()
 			if [[ $1 =~ $IPv6RE ]]; then
-				addresses=( "$1" )
+				addresses=("$1")
 			# if output=$(dig +noall +answer "${dig_delv_args[@]}" aaaa "$1") && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "AAAA" {print $5}') && [[ -n "$addresses" ]]; then
-			elif output=$(delv +noall "${dig_delv_args[@]}" aaaa "$1" 2>&1) && [[ -n "$output" ]]; then
+			elif output=$(delv +noall "${dig_delv_args[@]}" aaaa "$1" 2>&1) && [[ -n $output ]]; then
 				mapfile -t addresses < <(echo "$output" | grep -v '^;' | awk '$4 == "AAAA" {print $5}')
 			elif output=$(echo "$output" | grep -i '^;; resolution failed') && ! echo "$output" | grep -iq 'ncache'; then
 				echo "Error: Could not get IPv6 address (AAAA) resource record: ${output#*: }"
@@ -1001,8 +1001,8 @@ checkblacklists() {
 				done
 			done
 		fi
-		
-		echo "$NOW" > ".blacklist$FILE"
+
+		echo "$NOW" >".blacklist$FILE"
 	else
 		echo -e "\t\t🚫ℹ The blacklists have already been checked in the last hour."
 	fi
@@ -1012,17 +1012,17 @@ checkblacklists() {
 # checkvisually <URL>
 checkvisually() {
 	local message
-	if [[ -n "$PERCENTAGE" ]]; then
+	if [[ -n $PERCENTAGE ]]; then
 		# Only take a screenshot of each monitor once an hour for performance
-		if [[ ! -r ".visual$FILE" ]] || [[ -r ".visual$FILE" && $(( (NOW - $(<".visual$FILE")) / 3600 )) -gt 0 ]]; then
+		if [[ ! -r ".visual$FILE" ]] || [[ -r ".visual$FILE" && $(((NOW - $(<".visual$FILE")) / 3600)) -gt 0 ]]; then
 			# Need timeout, since will hang on error: https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots
-			if timeout 30 firefox -headless --screenshot "screenshot.png" "$1" > /dev/null 2>&1; then
+			if timeout 30 firefox -headless --screenshot "screenshot.png" "$1" >/dev/null 2>&1; then
 				if [[ -r "screenshot$FILE.png" ]]; then
 					if output=$(compare -metric mae "screenshot.png" "screenshot$FILE.png" null: 2>&1) || [[ $? -eq 1 ]]; then
 						output=${output#*(}
 						output=${output%)*}
 						output=$(echo "$output" | awk '{ printf "%.15g", $1 * 100 }')
-						if (( $(echo "$output $PERCENTAGE" | awk '{ print $1>=$2 }') )); then
+						if (($(echo "$output $PERCENTAGE" | awk '{ print $1>=$2 }'))); then
 							echo -e "\t\t⚠👁 Warning: Visual difference is $output%, which is greater then $PERCENTAGE%."
 							message="The visual difference for $MESSAGE is $output%, which is greater than $PERCENTAGE%."
 							log "$message"
@@ -1037,8 +1037,8 @@ checkvisually() {
 			else
 				echo "Error taking screenshot."
 			fi
-			
-			echo "$NOW" > ".visual$FILE"
+
+			echo "$NOW" >".visual$FILE"
 		else
 			echo -e "\t\t👁ℹ A screenshot has already been taken in the last hour."
 		fi
@@ -1058,15 +1058,15 @@ for i in "${!URLS[@]}"; do
 	message="${WEBSITENAMES[i]}"
 	# [[ ${URLS[i]} =~ $RE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[7]}${BASH_REMATCH[9]})"
 	[[ ${URLS[i]} =~ $URLRE ]] && message+=" (${BASH_REMATCH[1]}${BASH_REMATCH[6]}${BASH_REMATCH[31]}${BASH_REMATCH[33]}${BASH_REMATCH[35]}${BASH_REMATCH[36]})"
-	
+
 	printf "\t${BOLD}"
 	printf '\e]8;;%s\e\\%s\e]8;;\e\\' "${URLS[i]}" "${WEBSITENAMES[i]}"
 	printf "${NC} (%s" "${URLS[i]}"
-	
+
 	# if check=$(curl -sILw '%{http_code}\n' "${curl_args[@]}" "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
 	# --retry 1 --retry-connrefused
 	if output=$(curl -sSILw '%{url_effective}\n%{time_total}\t%{time_starttransfer}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1); then
-		times=( $(echo "$output" | tail -n 1) )
+		times=($(echo "$output" | tail -n 1))
 		output=$(echo "$output" | head -n -1)
 		url=$(echo "$output" | tail -n 1)
 		output=$(echo "$output" | head -n -1)
@@ -1083,25 +1083,25 @@ for i in "${!URLS[@]}"; do
 	else
 		aup=''
 		reason=$(echo "$output" | head -n 1 | sed -n 's/^[^:]\+: ([^)]\+) //p')
-		times=( $(echo "$output" | tail -n 1) )
+		times=($(echo "$output" | tail -n 1))
 		url=''
 	fi
-	
-	if [[ -n "$url" && "$url" != "${URLS[i]}" ]]; then
+
+	if [[ -n $url && $url != "${URLS[i]}" ]]; then
 		echo -n " ⇒ $url) is... "
 		# URLS[i]=$url
 	else
 		echo -n ") is... "
 	fi
-	
-	if [[ -n "$aup" ]]; then
+
+	if [[ -n $aup ]]; then
 		echo -e "${GREEN}UP${NC} (${reason})"'!'"  (${times[0]} seconds, TTFB: ${times[1]} seconds)"
-		
-		if [[ -r "$FILE" ]]; then
+
+		if [[ -r $FILE ]]; then
 			MESSAGE="$message is UP (${reason})"'!'
 			up
 		fi
-		
+
 		# Get protocol, hostname and port from URL
 		# RE='^((https?:)//)?(([^:]{1,128})(:[^@]{1,256})?@)?([-.[:alnum:]]{4,253})(:([[:digit:]]{1,5}))?(.*)?$'
 		if [[ ${URLS[i]} =~ $URLRE ]]; then
@@ -1111,7 +1111,7 @@ for i in "${!URLS[@]}"; do
 			# host=$(python3 -c 'import sys; print(sys.argv[1].encode("idna").decode())' "$host")
 			MESSAGE="$message"
 			dnssec "$host"
-			if [[ "$protocol" == "https:" ]]; then
+			if [[ $protocol == "https:" ]]; then
 				# port=${BASH_REMATCH[8]:-443}
 				port=${BASH_REMATCH[32]:-443}
 				certificate "$host" "$port"
@@ -1119,22 +1119,22 @@ for i in "${!URLS[@]}"; do
 			checkdomain "$host"
 			checkblacklists "$host"
 		fi
-		
+
 		# checkvisually "$url"
 		checkvisually "${URLS[i]}"
-		
+
 		((++UP))
 	else
 		echo -e "\a${RED}DOWN${NC} (${reason})"'!'"  (${times[0]} seconds)"
-		
-		if [[ ! -r "$FILE" ]]; then
+
+		if [[ ! -r $FILE ]]; then
 			MESSAGE="$message is currently DOWN (${reason})"'!'
 			down
 		fi
-		
+
 		((++DOWN))
 	fi
-	
+
 	echo
 done
 
@@ -1151,46 +1151,49 @@ for i in "${!PORTHOSTNAMES[@]}"; do
 	FILE=".${PORTHOSTNAMES[i]}${PORTS[i]}"
 	SUBJECT=${PORTNAMES[i]}
 	message="${PORTNAMES[i]} (${PORTHOSTNAMES[i]}:${PORTS[i]}${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}})"
-	
+
 	printf "\t${BOLD}"
 	printf '\e]8;;http://%s:%s\e\\%s\e]8;;\e\\' "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PORTNAMES[i]}"
 	printf "${NC} (%s:%s%s) is... " "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}}"
-	
-	if output=$(TIMEFORMAT='%R'; { time nc -z "${PORTHOSTNAMES[i]}" "${PORTS[i]}"; } 2>&1); then
+
+	if output=$(
+		TIMEFORMAT='%R'
+		{ time nc -z "${PORTHOSTNAMES[i]}" "${PORTS[i]}"; } 2>&1
+	); then
 		aup=1
 	else
 		aup=''
 		reason=$(echo "$output" | sed -n 's/^.\+: //p')
 	fi
-	
+
 	time=$(echo "$output" | tail -n 1)
-	
-	if [[ -n "$aup" ]]; then
+
+	if [[ -n $aup ]]; then
 		echo -e "${GREEN}UP${NC}"'!'"  ($time seconds)"
-		
-		if [[ -r "$FILE" ]]; then
+
+		if [[ -r $FILE ]]; then
 			MESSAGE="$message is UP"'!'
 			up
 		fi
-		
+
 		MESSAGE="$message"
 		dnssec "${PORTHOSTNAMES[i]}"
 		certificate "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PROTOCOLS[i]}"
 		checkdomain "${PORTHOSTNAMES[i]}"
 		checkblacklists "${PORTHOSTNAMES[i]}"
-		
+
 		((++UP))
 	else
 		echo -e "\a${RED}DOWN${NC}${reason:+ ($reason)}"'!'"  ($time seconds)"
-		
-		if [[ ! -r "$FILE" ]]; then
+
+		if [[ ! -r $FILE ]]; then
 			MESSAGE="$message is currently DOWN${reason:+ ($reason)}"'!'
 			down
 		fi
-		
+
 		((++DOWN))
 	fi
-	
+
 	echo
 done
 
@@ -1200,46 +1203,49 @@ for i in "${!PINGHOSTNAMES[@]}"; do
 	FILE=".${PINGHOSTNAMES[i]}"
 	SUBJECT=${PINGNAMES[i]}
 	message="${PINGNAMES[i]} (${PINGHOSTNAMES[i]})"
-	
+
 	printf "\t${BOLD}"
 	printf '\e]8;;http://%s\e\\%s\e]8;;\e\\' "${PINGHOSTNAMES[i]}" "${PINGNAMES[i]}"
 	printf "${NC} (%s) is... " "${PINGHOSTNAMES[i]}"
-	
-	if output=$(TIMEFORMAT='%R'; { time ping -q -c 1 "${PINGHOSTNAMES[i]}"; } 2>&1); then
+
+	if output=$(
+		TIMEFORMAT='%R'
+		{ time ping -q -c 1 "${PINGHOSTNAMES[i]}"; } 2>&1
+	); then
 		aup=1
 	else
 		aup=''
 		reason=$(echo "$output" | sed -n 's/^.\+: //p')
 	fi
-	
+
 	time=$(echo "$output" | tail -n 1)
 	rtt=$(echo "$output" | awk -F'/' '/^rtt / { print $5 }')
-	
-	if [[ -n "$aup" ]]; then
+
+	if [[ -n $aup ]]; then
 		echo -e "${GREEN}UP${NC}"'!'"  ($time seconds, RTT: $rtt milliseconds)"
-		
-		if [[ -r "$FILE" ]]; then
+
+		if [[ -r $FILE ]]; then
 			MESSAGE="$message is UP"'!'
 			up
 		fi
-		
+
 		MESSAGE="$message"
 		dnssec "${PINGHOSTNAMES[i]}"
 		checkdomain "${PINGHOSTNAMES[i]}"
 		checkblacklists "${PINGHOSTNAMES[i]}"
-		
+
 		((++UP))
 	else
 		echo -e "\a${RED}DOWN${NC}${reason:+ ($reason)}"'!'"  ($time seconds${rtt:+, RTT: $rtt milliseconds})"
-		
-		if [[ ! -r "$FILE" ]]; then
+
+		if [[ ! -r $FILE ]]; then
 			MESSAGE="$message is currently DOWN${reason:+ ($reason)}"'!'
 			down
 		fi
-		
+
 		((++DOWN))
 	fi
-	
+
 	echo
 done
 
@@ -1248,5 +1254,5 @@ printf "${BOLD}Total ${GREEN}█ UP${NC}: %'d\t${BOLD}${RED}█ DOWN${NC}: %'d\n
 echo -e "${BOLD}Runtime${NC}: $(getSecondsAsDigitalClock "$SECONDS")\n"
 
 for d in "${!DOMAINS[@]}"; do
-	echo "$NOW" > ".domain.$d"
+	echo "$NOW" >".domain.$d"
 done
