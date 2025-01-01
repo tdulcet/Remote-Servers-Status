@@ -27,15 +27,18 @@ DOMAINS=(
 FILE="domain-list.txt"
 [[ -r $FILE ]] && DOMAINS+=($(sort -u "$FILE"))
 WARNDAYS=30
+COLOR=1
 
-RED='\e[0;31m'
-YELLOW='\e[0;33m'
-GREEN='\e[0;32m'
-BOLD='\e[1m'
-NC='\e[m' # No Color
+if [[ -n $COLOR ]]; then
+	RED='\e[0;31m'
+	YELLOW='\e[0;33m'
+	GREEN='\e[0;32m'
+	BOLD='\e[1m'
+	RESET_ALL='\e[m'
+fi
 NOW=${EPOCHSECONDS:-$(date +%s)}
 
-printf "\n${BOLD}%-35s %-61s %-36s %-9s %s${NC}\n" 'Domain' 'Registrar' 'Expiration Date (current time zone)' 'Days Left' 'DNSSEC'
+printf "\n${BOLD}%-35s %-61s %-36s %-9s %s${RESET_ALL}\n" 'Domain' 'Registrar' 'Expiration Date (current time zone)' 'Days Left' 'DNSSEC'
 for d in "${DOMAINS[@]}"; do
 	registrar=''
 	date=''
@@ -86,12 +89,12 @@ for d in "${DOMAINS[@]}"; do
 	if [[ -n $days ]]; then
 		if [[ $days -ge 0 ]]; then
 			if [[ $days -lt $WARNDAYS ]]; then
-				printf "${YELLOW}%-36s %'-9d${NC}" "$date" "$days"
+				printf "${YELLOW}%-36s %'-9d${RESET_ALL}" "$date" "$days"
 			else
-				printf "${GREEN}%-36s %'-9d${NC}" "$date" "$days"
+				printf "${GREEN}%-36s %'-9d${RESET_ALL}" "$date" "$days"
 			fi
 		else
-			printf "${RED}%-36s %'-9d${NC}" "$date" "$days"
+			printf "${RED}%-36s %'-9d${RESET_ALL}" "$date" "$days"
 		fi
 	else
 		printf '%-36s %-9s' "$date"
