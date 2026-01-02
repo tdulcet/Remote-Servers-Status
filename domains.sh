@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Teal Dulcet
+# Copyright © Teal Dulcet
 # Domain expiration monitoring script extracted from the Remote Servers Status Monitoring Script (status.sh)
 # This is for testing only
 

@@ -1,11 +1,10 @@
 #!/bin/bash
 
-# Teal Dulcet
+# Copyright © Teal Dulcet
 # Monitors the status of one or more remote servers and send notifications when status changes state
 
-# Requires the curl, netcat, ping, dig, delv, whois and openssl commands
+# Requires the curl, ping, dig, delv, whois and openssl commands
 # sudo apt-get update
-# sudo apt-get install netcat
 # sudo apt-get install dnsutils
 # sudo apt-get install bind9
 # sudo apt-get install whois
@@ -248,12 +247,12 @@ echo -n "Checking internet connection... "
 
 # Check connectivity
 if ! ping -4 -q -c 1 google.com >/dev/null 2>&1; then
-	echo -e "\nWarning: Could not reach google.com over IPv4.\n"
+	echo -e "\nWarning: Could not reach google.com over IPv4."
 	IPv4=1
 fi
 
 if ! ping -6 -q -c 1 google.com >/dev/null 2>&1; then
-	echo -e "\nWarning: Could not reach google.com over IPv6.\n"
+	echo -e "\nWarning: Could not reach google.com over IPv6."
 	IPv6=1
 fi
 
@@ -288,7 +287,7 @@ if ((!${#TOEMAILS[@]})); then
 fi
 
 # Adapted from: https://github.com/mail-in-a-box/mailinabox/blob/master/setup/network-checks.sh
-if ! [[ -n $FROMEMAIL && -n $SMTP ]] && ! nc -z -w5 aspmx.l.google.com 25; then
+if ! [[ -n $FROMEMAIL && -n $SMTP ]] && ! timeout 5 bash -c 'exec >/dev/tcp/aspmx.l.google.com/25' 2>/dev/null; then
 	echo -e "Warning: Could not reach Google's mail server on port 25. Port 25 seems to be blocked by your network. You will need to set the SMTP server variables in order to send e-mails.\n"
 fi
 
@@ -469,14 +468,13 @@ ${CONTENTLANG:+$([[ ${#lang} -ge 2 ]] && echo "Content-Language: ${lang/_/-}
 						echo -e -n "$2" | base64
 					fi
 					echo
-					for i in "${@:3}"; do
+					for file in "${@:3}"; do
 						echo "--${boundary}
-Content-Type: $(file --mime-type -- "$i" | sed -n 's/^.\+: //p')
+Content-Type: $(file --mime-type -- "$file" | sed -n 's/^.\+: //p')
 Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}
-' --data-urlencode "$(basename -- "$i")" "" | sed -n 's/\/?//p')
+Content-Disposition: attachment; filename*=utf-8''$(curl -Gs -w '%{url_effective}\n' --data-urlencode "$(basename -- "$file")" "" | sed -n 's/\/?//p')
 "
-						base64 -- "$i"
+						base64 -- "$file"
 						echo
 					done
 					echo "--${boundary}--"
@@ -514,7 +512,7 @@ $signature
 					echo "MIME-Version: 1.0"
 					cat
 				fi
-			} | curl -sS ${STARTTLS:+--ssl-reqd} "$SMTP" --mail-from "$FROMADDRESS" "${addresses[@]}" -T - -u "${USERNAME}:${PASSWORD}"
+			} | curl -sS ${STARTTLS:+--ssl-reqd} --mail-from "$FROMADDRESS" "${addresses[@]}" -T - -u "${USERNAME}:${PASSWORD}" "$SMTP"
 		else
 			for address in "${CCADDRESSES[@]}"; do
 				addresses+=(-c "$address")
@@ -607,7 +605,7 @@ dnssec() {
 	local type date sec
 	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
 		for type in soa; do
-			if output=$(dig +noall +answer +authority +cd +dnssec "${dig_delv_args[@]}" "$type" "${1}") && [[ -n $output ]]; then
+			if output=$(dig +noall +answer +authority +cd +dnssec "${dig_delv_args[@]}" "${1}" "$type") && [[ -n $output ]]; then
 				if date=$(echo "$output" | awk '$4 == "RRSIG" && $5 == "'"${type^^}"'" {print $9}') && [[ -n $date ]]; then
 					date="${date:0:8} ${date:8:2}:${date:10:2}:${date:12:2}"
 					date=$(date -ud "$date" +%s)
@@ -650,11 +648,11 @@ revocation() {
 	if uri=$(echo "$output" | grep -i -A 4 'X509v3 CRL Distribution Points'); then
 		# Do not check CRL again until the next update for performance
 		file=".cert.crl$FILE"
-		if [[ ! -r $file ]] || [[ -r $file && $((NOW - $(date -d "$(<"$file")" +%s))) -gt 0 ]]; then
+		if [[ ! -r $file ]] || [[ $((NOW - $(date -d "$(<"$file")" +%s))) -gt 0 ]]; then
 			uri=$(echo "$uri" | grep -i 'uri' | sed -n 's/^[^:]\+://p' | head -n 1)
 			temp=$(mktemp)
 			# Download CRL
-			if output=$(curl -sSo "$temp" --compressed "${curl_args[@]}" "$uri"); then
+			if output=$(curl -sSfo "$temp" --retry 2 --compressed "${curl_args[@]}" "$uri"); then
 				if openssl crl -inform DER -in "$temp" -outform PEM -out "$temp"; then
 					adate=$(openssl crl -inform PEM -in "$temp" -noout -text | grep -i 'next update' | sed -n 's/^[^:]\+: //p')
 					if if [[ -n $chain ]]; then output=$(openssl verify -crl_check -CAfile "$temp" -untrusted <(echo "$chain") <(echo "$cert") 2>&1); else output=$(openssl verify -crl_check -CAfile "$temp" <(echo "$cert") 2>&1); fi; then
@@ -729,7 +727,7 @@ revocation() {
 		elif uri=$(echo "$1" | openssl x509 -noout -ocsp_uri) && [[ -n $uri ]]; then
 			# Do not check OCSP again until the next update for performance
 			file=".cert.ocsp$FILE"
-			if [[ ! -r $file ]] || [[ -r $file && $((NOW - $(date -d "$(<"$file")" +%s))) -gt 0 ]]; then
+			if [[ ! -r $file ]] || [[ $((NOW - $(date -d "$(<"$file")" +%s))) -gt 0 ]]; then
 				if openssl verify <(echo "$chain") >/dev/null 2>&1; then
 					# Query OCSP responder
 					if output=$(openssl ocsp -issuer <(echo "$chain") -cert <(echo "$cert") -url "$uri" 2>&1) && echo "$output" | grep -iq 'response verify ok'; then
@@ -835,15 +833,15 @@ verifycertificate() {
 certificate() {
 	local data args=()
 	# Get TLSA resource record
-	# if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(dig +dnssec +noall +answer "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}") && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
-	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(delv +noall "${dig_delv_args[@]}" tlsa "_${2}._tcp.${1}" 2>&1) && [[ -n $output ]] && mapfile -t data < <(echo "$output" | grep -v '^;' | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n $data ]]; then
+	# if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(dig +dnssec +noall +answer "${dig_delv_args[@]}" "_${2}._tcp.${1}" TLSA) && [[ -n "$output" ]] && mapfile -t data < <(echo "$output" | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n "$data" ]]; then
+	if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]] && output=$(delv +cd +noall "${dig_delv_args[@]}" "_${2}._tcp.${1}" TLSA 2>&1) && [[ -n $output ]] && mapfile -t data < <(echo "$output" | grep -v '^;' | awk '$4 == "TLSA" {print $5, $6, $7, $8, $9}') && [[ -n $data ]]; then
 		for arg in "${data[@]}"; do
 			args+=(-dane_tlsa_rrdata "$arg")
 		done
 		# Check for StartTLS protocol
 		if [[ -n $3 ]]; then
 			# Verify TLSA resource record
-			if output=$(echo | openssl s_client -starttls "${3@Q}" -showcerts -connect "$1:$2" -servername "$1" -verify_hostname "$1" -tlsextdebug -status -msg -dane_tlsa_domain "$1" "${args[@]}" 2>/dev/null); then
+			if output=$(echo | openssl s_client -starttls "$3" -showcerts -connect "$1:$2" -servername "$1" -verify_hostname "$1" -tlsextdebug -status -msg -dane_tlsa_domain "$1" "${args[@]}" 2>/dev/null); then
 				tlsa "$output"
 			else
 				echo -e "\t\t✖️ Error: Could not get certificate with StartTLS."
@@ -969,10 +967,10 @@ checkdomain() {
 # checkblacklist <domain> <blacklist> [IP address]
 checkblacklist() {
 	local answers reasons
-	if ! output=$(dig +short a "$1"); then
+	if ! output=$(dig +short "$1" A); then
 		echo "Error: Could not check the $2 blacklist: ${output#*: }"
 	elif [[ -n $output ]] && mapfile -t answers < <(echo "$output" | grep -v '^;') && [[ -n $answers ]]; then
-		output=$(dig +short txt "$1") && [[ -n $output ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
+		output=$(dig +short "$1" TXT) && [[ -n $output ]] && mapfile -t reasons < <(echo "$output" | grep -v '^;')
 		echo -e "\t\t⚠🚫 Warning: The $([[ -n $3 ]] && echo "IP address ($3)" || echo "domain") is listed in the '$2' blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
 
 		error ".blacklist.$2$FILE" "⚠️🚫 $([[ -n $3 ]] && echo "IP address ($3)" || echo "Domain") for $SUBJECT is on the '$2' blacklist" "The $([[ -n $3 ]] && echo "IP address ($3)" || echo "domain") for $MESSAGE is listed in the '$2' DNS blacklist (${answers[*]})${reasons:+: ${reasons[*]}}."
@@ -987,7 +985,7 @@ checkblacklist() {
 checkblacklists() {
 	local bl addresses address reverse
 	# Only check each monitor once an hour for performance
-	if [[ ! -r ".blacklist$FILE" ]] || [[ -r ".blacklist$FILE" && $(((NOW - $(<".blacklist$FILE")) / 3600)) -gt 0 ]]; then
+	if [[ ! -r ".blacklist$FILE" ]] || [[ $((NOW - $(<".blacklist$FILE"))) -gt 3600 ]]; then
 		# Check Domain Blacklists
 		if [[ ! $1 =~ $IPv4RE && ! $1 =~ $IPv6RE ]]; then
 			for bl in "${DOMAINBLACKLISTS[@]}"; do
@@ -999,15 +997,15 @@ checkblacklists() {
 			addresses=()
 			if [[ $1 =~ $IPv4RE ]]; then
 				addresses=("$1")
-			# if output=$(dig +noall +answer "${dig_delv_args[@]}" a "$1") && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "A" {print $5}') && [[ -n "$addresses" ]]; then
-			elif output=$(delv +noall "${dig_delv_args[@]}" a "$1" 2>&1) && [[ -n $output ]]; then
+			# if output=$(dig +noall +answer "${dig_delv_args[@]}" "$1" A) && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "A" {print $5}') && [[ -n "$addresses" ]]; then
+			elif output=$(delv +cd +noall "${dig_delv_args[@]}" "$1" A 2>&1) && [[ -n $output ]]; then
 				mapfile -t addresses < <(echo "$output" | grep -v '^;' | awk '$4 == "A" {print $5}')
 			elif output=$(echo "$output" | grep -i '^;; resolution failed') && ! echo "$output" | grep -iq 'ncache'; then
 				echo "Error: Could not get Address (A) resource record: ${output#*: }"
 			fi
 			for address in "${addresses[@]}"; do
 				# Reverse IPv4 address
-				reverse=$(echo "$address" | awk -F. '{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":".") }')
+				reverse=$(echo "$address" | awk -F. '{ for(i=NF; i>0; --i) printf "%s%s", $i, (i==1 ? "\n" : ".") }')
 				for bl in "${IPv4BLACKLISTS[@]}"; do
 					checkblacklist "$reverse.$bl" "$bl" "$address"
 				done
@@ -1018,15 +1016,15 @@ checkblacklists() {
 			addresses=()
 			if [[ $1 =~ $IPv6RE ]]; then
 				addresses=("$1")
-			# if output=$(dig +noall +answer "${dig_delv_args[@]}" aaaa "$1") && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "AAAA" {print $5}') && [[ -n "$addresses" ]]; then
-			elif output=$(delv +noall "${dig_delv_args[@]}" aaaa "$1" 2>&1) && [[ -n $output ]]; then
+			# if output=$(dig +noall +answer "${dig_delv_args[@]}" "$1" AAAA) && [[ -n "$output" ]] && mapfile -t addresses < <(echo "$output" | awk '$4 == "AAAA" {print $5}') && [[ -n "$addresses" ]]; then
+			elif output=$(delv +cd +noall "${dig_delv_args[@]}" "$1" AAAA 2>&1) && [[ -n $output ]]; then
 				mapfile -t addresses < <(echo "$output" | grep -v '^;' | awk '$4 == "AAAA" {print $5}')
 			elif output=$(echo "$output" | grep -i '^;; resolution failed') && ! echo "$output" | grep -iq 'ncache'; then
 				echo "Error: Could not get IPv6 address (AAAA) resource record: ${output#*: }"
 			fi
 			for address in "${addresses[@]}"; do
 				# Expand and reverse IPv6 address, adapted from: https://gist.github.com/lsowen/4447d916fd19cbb7fce4
-				reverse=$(echo "$address" | awk -F: 'BEGIN{ OFS=""; }{ addCount = 9 - NF; for(i=1;i<=NF;i++) { if(length($i) == 0) { for(j=1;j<=addCount;j++) { $i = ($i "0000"); } } else{ $i = substr(("0000" $i), length($i)+5-4); } }; print }' | awk -F '' 'BEGIN{ OFS="."; }{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":".") }')
+				reverse=$(echo "$address" | awk -F: 'BEGIN{ OFS=""; }{ addCount = 9 - NF; for(i=1; i<=NF; ++i) { if(length($i) == 0) { for(j=1; j<=addCount; ++j) { $i = ($i "0000"); } } else{ $i = substr(("0000" $i), length($i)+5-4); } }; print }' | awk -F '' 'BEGIN{ OFS="."; }{ for(i=NF; i>0; --i) printf "%s%s", $i, (i==1 ? "\n" : ".") }')
 				for bl in "${IPv6BLACKLISTS[@]}"; do
 					checkblacklist "$reverse.$bl" "$bl" "$address"
 				done
@@ -1045,7 +1043,7 @@ checkvisually() {
 	local message
 	if [[ -n $PERCENTAGE ]]; then
 		# Only take a screenshot of each monitor once an hour for performance
-		if [[ ! -r ".visual$FILE" ]] || [[ -r ".visual$FILE" && $(((NOW - $(<".visual$FILE")) / 3600)) -gt 0 ]]; then
+		if [[ ! -r ".visual$FILE" ]] || [[ $((NOW - $(<".visual$FILE"))) -gt 3600 ]]; then
 			# Need timeout, since will hang on error: https://developer.mozilla.org/en-US/docs/Mozilla/Firefox/Headless_mode#Taking_screenshots
 			if timeout 30 firefox -headless --screenshot "screenshot.png" "$1" >/dev/null 2>&1; then
 				if [[ -r "screenshot$FILE.png" ]]; then
@@ -1094,9 +1092,9 @@ for i in "${!URLS[@]}"; do
 	printf '\e]8;;%s\e\\%s\e]8;;\e\\' "${URLS[i]}" "${WEBSITENAMES[i]}"
 	printf "${RESET_ALL} (%s" "${URLS[i]}"
 
-	# if check=$(curl -sILw '%{http_code}\n' "${curl_args[@]}" "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
+	# if check=$(curl -sILgw '%{http_code}\n' "${curl_args[@]}" "${URLS[i]}" -o /dev/null) && [[ $check -ge 200 && $check -lt 300 ]]
 	# --retry 1 --retry-connrefused
-	if output=$(curl -sSILw '%{url_effective}\n%{time_total}\t%{time_starttransfer}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1); then
+	if output=$(curl -sSILgw '%{url_effective}\n%{time_total}\t%{time_starttransfer}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1); then
 		times=($(echo "$output" | tail -n 1))
 		output=$(echo "$output" | head -n -1)
 		url=$(echo "$output" | tail -n 1)
@@ -1139,7 +1137,7 @@ for i in "${!URLS[@]}"; do
 			protocol=${BASH_REMATCH[2]}
 			host=${BASH_REMATCH[7]:-${BASH_REMATCH[6]}}
 			# Convert hostname to Internationalizing Domain Names in Applications (IDNA) encoding
-			# host=$(python3 -c 'import sys; print(sys.argv[1].encode("idna").decode())' "$host")
+			# host=$(python3 -c 'import sys; print(sys.argv[1].encode("idna").decode("utf-8"))' "$host")
 			MESSAGE="$message"
 			dnssec "$host"
 			if [[ $protocol == "https:" ]]; then
@@ -1171,10 +1169,10 @@ done
 
 # echo -e "${BOLD}Keyword Website (HTTP(S)) Monitors${RESET_ALL}\n"
 
-# output=$(curl -sSILw '%{url_effective}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1)
+# output=$(curl -sSILgw '%{url_effective}\n' "${curl_args[@]}" "${URLS[i]}" 2>&1)
 # There is no way with cURL to get the HTTP Headers and Body in separate variables and to have cURL follow redirects without using a temp file or two cURL commands
 # I chose to use two commands for performance and to reduce disk ware with SSDs
-# output=$(curl -sSL "${curl_args[@]}" "${URLS[i]}" 2>&1)
+# output=$(curl -sSLg "${curl_args[@]}" "${URLS[i]}" 2>&1)
 
 echo -e "${BOLD}Port Monitors${RESET_ALL}\n"
 
@@ -1187,14 +1185,15 @@ for i in "${!PORTHOSTNAMES[@]}"; do
 	printf '\e]8;;http://%s:%s\e\\%s\e]8;;\e\\' "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PORTNAMES[i]}"
 	printf "${RESET_ALL} (%s:%s%s) is... " "${PORTHOSTNAMES[i]}" "${PORTS[i]}" "${PROTOCOLS[i]:+ and Protocol: ${PROTOCOLS[i]^^}}"
 
+	# nc -z "${PORTHOSTNAMES[i]}" "${PORTS[i]}"
 	if output=$(
 		TIMEFORMAT='%R'
-		{ time nc -z "${PORTHOSTNAMES[i]}" "${PORTS[i]}"; } 2>&1
+		{ time >"/dev/tcp/${PORTHOSTNAMES[i]}/${PORTS[i]}"; } 2>&1
 	); then
 		aup=1
 	else
 		aup=''
-		reason=$(echo "$output" | sed -n 's/^.\+: //p')
+		reason=$(echo "$output" | sed -n 's/^.\+: //p' | head -n 1)
 	fi
 
 	time=$(echo "$output" | tail -n 1)

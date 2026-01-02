@@ -13,9 +13,9 @@ Copyright © 2019 Teal Dulcet
 
 This script can be run manually to check the state of one or more remote servers.
 
-Requires at least Bash 4.4 and the curl, netcat, ping, dig, delv, whois and openssl commands, which are included on most Linux distributions.
+Requires at least Bash 4.4, OpenSSL 1.1 and the curl, ping, dig, delv and whois commands, which are included on most Linux distributions.
 
-1. Verify that the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install netcat dnsutils bind9 whois`.
+1. Verify that the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install dnsutils bind9 whois`.
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
 3. Download the script ([status.sh](status.sh)). Run: `wget https://raw.github.com/tdulcet/Remote-Servers-Status/master/status.sh`.
 4. Open the script in an editor and set the variables at the top. At a minimum, you need to provide one To e-mail address and one Website, Port or Ping monitor.
@@ -441,6 +441,5 @@ Pull requests welcome! Ideas for contributions:
 	* In Firefox, this is possible with [geckodriver](https://firefox-source-docs.mozilla.org/testing/geckodriver/Usage.html#standalone)
 * Support [Internationalized domain names](https://en.wikipedia.org/wiki/Internationalized_domain_name) (IDNs) and [International email](https://en.wikipedia.org/wiki/International_email) addresses
 	* Currently they are only supported in Internationalizing Domain Names in Applications (IDNA) encoding.
-* Support checking port monitors using `/dev/tcp`
 * Support domain monitoring with the [Registration Data Access Protocol](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol) (RDAP)
 * Support checking for the [HTTP Strict Transport Security](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) (HSTS) header and the [MTA Strict Transport Security](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP_MTA_Strict_Transport_Security) (MTA-STS) file
