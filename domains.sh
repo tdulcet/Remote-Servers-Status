@@ -10,7 +10,11 @@
 
 set -e
 
-export LC_ALL=en_US.UTF-8
+if locale -a | grep -iq '^en_US'; then
+	export LC_ALL=en_US.UTF-8
+else
+	export LC_ALL=C.UTF-8
+fi
 
 if [[ $# -ne 0 ]]; then
 	echo "Usage: $0" >&2
@@ -43,31 +47,14 @@ for d in "${DOMAINS[@]}"; do
 	registrar=''
 	date=''
 	days=''
-	server=''
 	dnssec=''
-	if output=$(whois -h "whois.iana.org" "${d#*.}" 2>&1) && [[ -n $output ]]; then
-		if aserver=$(echo "$output" | grep -i 'whois:'); then
-			server=$(echo "$aserver" | sed -n 's/^[^:]\+[:][[:blank:]]\+//p')
-		fi
-	fi
-	if { output=$(whois "$d" 2>&1) && [[ -n $output ]]; } || { [[ -n $server ]] && output=$(whois -h "$server" "$d" 2>&1) && [[ -n $output ]]; }; then
-		if aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar\.*:\|organization name[[:blank:]]\+\|registrar name:\|record maintained by:\|registrar organization:\|provider:\|support:\|current registar:\|authorized agency\|registered by:\|billing contact:\|contacto financiero'); then
-			aregistrar=$(echo "$aregistrar" | head -n 2)
-			registrar=$(echo "$aregistrar" | sed -n '/^.\+[]:][.[:blank:]]*/ {$!N; s/^[^]:]\+[]:][.[:space:]]*//p}' | head -n 1)
-		elif aregistrar=$(echo "$output" | grep -v '^%' | grep -i -A 1 'registrar'); then
-			aregistrar=$(echo "$aregistrar" | head -n 2)
-			registrar=$(echo "$aregistrar" | sed -n '/^.\+[[:blank:]]*/ {$!N; s/^[^:]\+[:][[:blank:]]\+//p}' | head -n 1)
-		elif aregistrar=$(echo "$output" | grep -i 'copyright (c) [[:print:]]\+ by'); then
-			aregistrar=$(echo "$aregistrar" | head -n 1)
-			registrar=$(echo "$aregistrar" | sed -n 's/^.\+ by //p')
-		else
+	if output=$(curl -sSLf --retry 2 --compressed -H 'Accept: application/rdap+json' "https://rdap.org/domain/$d" 2>&1) && [[ -n $output ]]; then
+		if ! registrar=$(echo "$output" | jq -er '.entities[] | select(.roles[]? | contains("registrar")) | if .vcardArray then .vcardArray[1][] | select(.[0] == "fn") | .[3] else .handle end'); then
 			registrar="Unknown" # registrar="Error: Could not get domain registrar."
 		fi
-		
-		if adate=$(echo "$output" | grep -i 'expiration\|expires\|expiry\|renewal:\|expire\|paid-till\|valid until\|exp date\|validity\|vencimiento\|registry fee due\|fecha de corte'); then
-			adate=$(echo "$adate" | head -n 1 | sed -n 's/^[^]:]\+[]:][.[:blank:]]*//p')
-			adate=${adate%.}
-			if date=$(date -u -d "$adate" 2>&1) || date=$(date -u -d "${adate//./-}" 2>&1) || date=$(date -u -d "${adate//.//}" 2>&1) || date=$(date -u -d "$(echo "${adate//./-}" | awk -F'[/-]' '{ for(i=NF;i>0;i--) printf "%s%s",$i,(i==1?"\n":"-") }')" 2>&1); then
+
+		if adate=$(echo "$output" | jq -er '.events[] | select(.eventAction | (contains("expiration") or contains("expires"))) | .eventDate'); then
+			if date=$(date -ud "$adate" 2>&1); then
 				date=$(date -d "$date")
 				sec=$(($(date -d "$date" +%s) - NOW))
 				days=$((sec / 86400))
@@ -78,12 +65,15 @@ for d in "${DOMAINS[@]}"; do
 			date="Unknown" # date="Error: Could not get domain expiration date."
 		fi
 
-		if adnssec=$(echo "$output" | grep -i -A 1 'dnssec'); then
-			adnssec=$(echo "$adnssec" | head -n 2)
-			dnssec=$(echo "$adnssec" | sed -n '/^.\+:[[:blank:]]*/ {$!N; s/^[^:]\+:[[:space:]]*//p}' | head -n 1)
+		if adnssec=$(echo "$output" | jq -e 'if .secureDNS.delegationSigned then 1 else 0 end'); then
+			if ((adnssec)); then
+				dnssec='Yes (signed)'
+			else
+				dnssec='No (unsigned)'
+			fi
 		fi
 	else
-		registrar="Error querying whois server: $(echo "$output" | head -n 1)"
+		registrar="Error querying RDAP server: $(echo "$output" | head -n 1)"
 	fi
 	printf '\e]8;;http://%s\e\\%s\e]8;;\e\\%*s %-61s ' "$d" "$d" $((-35 + ${#d})) '' "$registrar"
 	if [[ -n $days ]]; then
@@ -97,9 +87,9 @@ for d in "${DOMAINS[@]}"; do
 			printf "${RED}%-36s %'-9d${RESET_ALL}" "$date" "$days"
 		fi
 	else
-		printf '%-36s %-9s' "$date"
+		printf '%-36s %-9s' "$date" ''
 	fi
 	printf ' %s\n' "$dnssec"
-	sleep 2
+	sleep 1
 done
 echo

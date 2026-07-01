@@ -13,9 +13,9 @@ Copyright © 2019 Teal Dulcet
 
 This script can be run manually to check the state of one or more remote servers.
 
-Requires at least Bash 4.4, OpenSSL 1.1 and the curl, ping, dig, delv and whois commands, which are included on most Linux distributions.
+Requires at least Bash 4.4, OpenSSL 1.1 and the curl, ping, dig, delv, jq and idn2/idn commands, which are included on most Linux distributions.
 
-1. Verify that the required commands above are installed. On the Raspberry Pi, run: `sudo apt-get update` and `sudo apt-get install dnsutils bind9 whois`.
+1. Verify that the required commands above are installed. On the Raspberry Pi, run: `sudo apt update` and `sudo apt install dnsutils bind9 jq idn2 idn`.
 2. Create a directory for the script and CD into that directory. Run: `mkdir status` and `cd status`.
 3. Download the script ([status.sh](status.sh)). Run: `wget https://raw.github.com/tdulcet/Remote-Servers-Status/master/status.sh`.
 4. Open the script in an editor and set the variables at the top. At a minimum, you need to provide one To e-mail address and one Website, Port or Ping monitor.
@@ -40,7 +40,7 @@ Optional visual monitoring requires [Firefox](https://www.mozilla.org/firefox/) 
 I recommended you install [Firefox: Developer Edition](https://www.mozilla.org/firefox/developer/)/Beta or Nightly to automatically test the websites compatibility with the next release or next two releases of Firefox, respectively.
 
 1. Complete the steps above.
-2. Make sure Firefox and ImageMagick are installed. On x86_64 Linux, click these links to download the latest version: [Firefox](https://download.mozilla.org/?product=firefox-latest&lang=en-US&os=linux64), [Firefox Developer Edition](https://download.mozilla.org/?product=firefox-devedition-latest&lang=en-US&os=linux64), [Firefox Beta](https://download.mozilla.org/?product=firefox-beta-latest&lang=en-US&os=linux64), [Firefox Nightly](https://download.mozilla.org/?product=firefox-nightly-latest&lang=en-US&os=linux64) or [Firefox Nightly AddressSanitizer](https://firefox-source-docs.mozilla.org/tools/sanitizer/asan_nightly.html#requirements) build and [follow these instruction](http://mzl.la/1xKrIV5) to install. On the Raspberry Pi, run: `sudo apt-get install firefox-esr imagemagick`.
+2. Make sure Firefox and ImageMagick are installed. On x86_64 Linux, click these links to download the latest version: [Firefox](https://download.mozilla.org/?product=firefox-latest&lang=en-US&os=linux64), [Firefox Developer Edition](https://download.mozilla.org/?product=firefox-devedition-latest&lang=en-US&os=linux64), [Firefox Beta](https://download.mozilla.org/?product=firefox-beta-latest&lang=en-US&os=linux64), [Firefox Nightly](https://download.mozilla.org/?product=firefox-nightly-latest&lang=en-US&os=linux64) or [Firefox Nightly AddressSanitizer](https://firefox-source-docs.mozilla.org/tools/sanitizer/asan_nightly.html#requirements) build and [follow these instruction](http://mzl.la/1xKrIV5) to install. On the Raspberry Pi, run: `sudo apt install firefox-esr imagemagick`.
 3. Open the script in an editor and uncomment the `PERCENTAGE` variable to enable visual monitoring.
 
 By default, the latest screenshot for each website monitor is saved to `screenshot.<URL without backslashes>.png`. For example, if the monitor's URL were https://example.com/, the file would be `screenshot.https:example.com.png`.
@@ -383,7 +383,7 @@ By default, the latest screenshot for each website monitor is saved to `screensh
 </table>
 
 \* Optional\
-\*\* Should work for all TLDs, except for a few which have no [whois server](https://github.com/rfc1036/whois/blob/next/tld_serv_list) or which do not provide the domain expiration date. Here is a list of [TLDs supported by StatusCake](https://www.statuscake.com/kb/knowledge-base/which-domain-tlds-are-supported-by-the-domain-monitoring-feature/), all of which should work with this script.\
+\*\* Should work for all TLDs, except for a few which have no [RDAP server](https://deployment.rdap.org/). Here is a list of [TLDs supported by StatusCake](https://www.statuscake.com/kb/knowledge-base/which-domain-tlds-are-supported-by-the-domain-monitoring-feature/), all of which should work with this script.\
 ^ Only 50 monitors\
 ^^ Does not work with all mobile providers\
 ^^^ [Available separately](https://hetrixtools.com/pricing/blacklist-monitor/)
@@ -395,7 +395,7 @@ Source: [Uptime Robot](https://uptimerobot.com/?rid=fc8b28effadf11), [StatusCake
 For Website monitors, by default, the script makes a HEAD [HTTP request](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol#Request_methods) and the monitor is considered up if it responds with a 2XX [HTTP status code](https://en.wikipedia.org/wiki/List_of_HTTP_status_codes). For HTTPS monitors, additional checks are preformed to verify the certificate.
 
 Domain, DNSSEC and Blacklist monitoring is done for all Website, Port and Ping monitors. Certificate monitoring is done for all HTTPS monitors whose URLs start with “https://” and all Port monitors who support SSL/TLS or StartTLS.
-Domain monitoring is done once an hour for each domain by default for performance and to avoid the whois limit.
+Domain monitoring is done once an hour for each domain by default for performance and to avoid the whois/RDAP limit.
 Blacklist monitoring is done once an hour for each monitor by default for performance.
 Visual monitoring takes a screenshot of each Website monitor every hour by default for performance and sends a notification when the visual difference is greater than or equal to 20% by default, although this can be configured by changing the `PERCENTAGE` variable.
 Certificate and Domain expiry reminder notifications are sent three days before expiration by default, although this can be configured by changing the `WARNDAYS` variable.
@@ -422,9 +422,8 @@ Pull requests welcome! Ideas for contributions:
 
 * Test the domain monitoring with more TLDs
 	* There is a separate [domains.sh](domains.sh) script for testing the Domain expiration monitoring. List the domains in the array at the top of the script or in a “[domain-list.txt](https://github.com/click0/domain-check-2/blob/master/domain-list.txt)” file.
-* Implement a better method for getting the root domain from the hostname
-	* Currently it gets it from the Start of Authority (SOA) resource record, but this does not always work for domains with multiple subdomains. [This page](https://publicsuffix.org/learn/) implies that it is possible to get the root domain through the DNS.
 * Add response and load time monitoring
+* Add DNS monitoring
 * Add more notification types/integrations
 	* Add push notification support
 * Support associating the e-mail address with specific monitors
@@ -441,5 +440,4 @@ Pull requests welcome! Ideas for contributions:
 	* In Firefox, this is possible with [geckodriver](https://firefox-source-docs.mozilla.org/testing/geckodriver/Usage.html#standalone)
 * Support [Internationalized domain names](https://en.wikipedia.org/wiki/Internationalized_domain_name) (IDNs) and [International email](https://en.wikipedia.org/wiki/International_email) addresses
 	* Currently they are only supported in Internationalizing Domain Names in Applications (IDNA) encoding.
-* Support domain monitoring with the [Registration Data Access Protocol](https://en.wikipedia.org/wiki/Registration_Data_Access_Protocol) (RDAP)
 * Support checking for the [HTTP Strict Transport Security](https://en.wikipedia.org/wiki/HTTP_Strict_Transport_Security) (HSTS) header and the [MTA Strict Transport Security](https://en.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol#SMTP_MTA_Strict_Transport_Security) (MTA-STS) file
